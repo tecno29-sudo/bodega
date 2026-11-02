@@ -167,7 +167,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 
 .search{display:flex;gap:8px}
 .search input{flex:1}
-.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
 .seg button{border:0;background:none;border-radius:9px;padding:9px;font:700 13px var(--f-body);color:var(--muted);cursor:pointer}
 .seg button.on{background:var(--ink);color:var(--paper)}
 .filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
@@ -182,6 +182,13 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .item .p{font-family:var(--f-mono);font-weight:600;text-align:right}
 .item .mg{font-family:var(--f-mono);font-size:12px;text-align:right}
 .ok{color:var(--good)} .mid{color:var(--warn)} .low{color:var(--bad)}
+.grp{padding:9px 12px 5px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--paper);border-bottom:1px solid var(--line)}
+.stk{font:600 18px var(--f-mono);text-align:right;min-width:34px}
+.stk.zero{color:var(--bad)}
+.expcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.big3{display:grid;grid-template-columns:64px 1fr 64px;gap:10px;align-items:center}
+.big3 button{height:64px;border-radius:16px;border:0;font:700 28px var(--f-mono);cursor:pointer}
+.big3 .num{font:600 44px var(--f-mono);text-align:center}
 .empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
 .more{font-size:12px;color:var(--muted);text-align:center}
 
@@ -238,14 +245,14 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
       </div>
       <div class="kpis">
         <div class="kpi"><div class="lbl">Productos</div><div class="v" id="kProd">—</div></div>
-        <div class="kpi"><div class="lbl">Tomos</div><div class="v" id="kLista">—</div></div>
+        <div class="kpi" data-go="productos" data-view="inv" data-filter="stock" style="cursor:pointer"><div class="lbl">Tomos ›</div><div class="v" id="kLista">—</div></div>
         <div class="kpi"><div class="lbl">Al objetivo</div><div class="v" id="kObj">—</div></div>
       </div>
       <div class="sec"><h3>Requiere atención</h3></div>
       <div class="alerts">
-        <button class="alert s-warn" data-go="productos" data-view="cat" data-filter="cambio"><i></i><div><div class="t">Precios por actualizar</div><div class="d">El precio calculado no es el de tu WooCommerce</div></div><span class="n" id="aCambio">0</span></button>
-        <button class="alert s-bad" data-go="productos" data-view="cat" data-filter="isbn"><i></i><div><div class="t">ISBN que no coinciden</div><div class="d" id="aIsbnD">Revisa el ISBN en WooCommerce</div></div><span class="n" id="aIsbn">0</span></button>
-        <button class="alert s-info" data-go="productos" data-view="cat" data-filter="mov"><i></i><div><div class="t">Movimientos de stock sin exportar</div><div class="d" id="aMovD">Ventas y llegadas registradas en el teléfono</div></div><span class="n" id="aMov">0</span></button>
+        <button class="alert s-warn" data-go="productos" data-view="precios" data-filter="cambio"><i></i><div><div class="t">Precios por actualizar</div><div class="d">El precio calculado no es el de tu WooCommerce</div></div><span class="n" id="aCambio">0</span></button>
+        <button class="alert s-bad" data-go="productos" data-view="precios" data-filter="isbn"><i></i><div><div class="t">ISBN que no coinciden</div><div class="d" id="aIsbnD">Revisa el ISBN en WooCommerce</div></div><span class="n" id="aIsbn">0</span></button>
+        <button class="alert s-info" data-go="productos" data-view="inv" data-filter="mov"><i></i><div><div class="t">Movimientos de stock sin exportar</div><div class="d" id="aMovD">Ventas y llegadas registradas en el teléfono</div></div><span class="n" id="aMov">0</span></button>
         <button class="alert s-info" data-go="productos" data-view="esc" data-filter="pend"><i></i><div><div class="t">Escaneos sin exportar</div><div class="d">Listos para subir a WooCommerce</div></div><span class="n" id="aPend">0</span></button>
       </div>
       <div class="sec"><h3>Margen real por editorial</h3><span class="legend"><b></b> objetivo</span></div>
@@ -326,7 +333,11 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         </div>
         <div class="field"><label for="fCat">Categorías <span class="tag auto" id="tgCat">auto</span></label><textarea id="fCat" style="min-height:64px"></textarea></div>
         <div class="field"><label for="fTags">Etiquetas</label><input id="fTags"></div>
-        <div class="field"><label for="fDesc">Descripción (sinopsis de la contratapa)</label><textarea id="fDesc" placeholder="Escribe o pega la sinopsis. La lectura automática llega en la etapa 2."></textarea></div>
+        <div class="field"><label for="fDesc">Descripción (sinopsis de la contratapa)</label>
+          <button class="btn ghost" id="ocrBtn" type="button">Leer sinopsis con la cámara</button>
+          <input type="file" id="ocrIn" accept="image/*" capture="environment" hidden>
+          <p class="sub" id="ocrSt" aria-live="polite">Saca la foto derecha, con buena luz y solo la parte del texto.</p>
+          <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
         <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div>
 
         <div class="breakdown boxed">
@@ -359,12 +370,12 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     <!-- PRODUCTOS -->
     <section class="screen" id="s-productos" aria-label="Productos">
       <div><h3 class="h">Productos</h3><p class="sub" id="lSub"></p></div>
-      <div class="seg" id="seg"><button data-v="esc" class="on">Escaneados</button><button data-v="cat">Catálogo</button></div>
+      <div class="seg" id="seg"><button data-v="inv" class="on">Mi inventario</button><button data-v="esc">Escaneados</button><button data-v="precios">Precios</button></div>
+      <div class="expcard" id="exp"></div>
       <div class="search"><label for="q" hidden>Buscar</label><input id="q" placeholder="Buscar título o ISBN"></div>
       <div class="filters" id="filters"></div>
       <div class="list" id="list"></div>
       <div class="more" id="more"></div>
-      <div id="exp" style="display:flex;flex-direction:column;gap:8px"></div>
     </section>
 
     <!-- AJUSTES -->
@@ -401,6 +412,14 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     </section>
 
     <div class="toast" id="toast" role="status"></div>
+    <div class="sheet" id="stk" hidden><div class="in">
+      <h3 class="h" style="font-size:18px" id="kT"></h3>
+      <p class="sub" id="kS"></p>
+      <div class="big3"><button class="btn danger" id="kMenos" aria-label="Restar 1">−</button><div class="num" id="kN">0</div><button class="btn primary" id="kMas" aria-label="Sumar 1">+</button></div>
+      <p class="sub" id="kD" style="text-align:center"></p>
+      <div class="search"><label for="kSet" hidden>Fijar stock</label><input id="kSet" class="mono" type="number" min="0" inputmode="numeric" placeholder="Conteo real"><button class="btn ghost sm" id="kSetGo">Fijar</button></div>
+      <div class="btnrow"><button class="btn ghost" id="kClose">Cerrar</button><button class="btn ghost" id="kFicha">Ver ficha</button></div>
+    </div></div>
     <div class="sheet" id="sheet" hidden><div class="in">
       <h3 class="h" style="font-size:18px" id="shT">CSV</h3>
       <p class="sub" id="shS"></p>
@@ -755,47 +774,87 @@ $('#fDel').addEventListener('click',async()=>{ const s=S.cur; if(!s) return; con
   if(saved) await delScan(s.id); S.cur=null; toast(saved?'Borrado.':'Descartado.'); go('escanear'); });
 
 /* ================= productos ================= */
-const FILTERS={esc:[['todos','Todos'],['pend','Sin exportar'],['nuevo','Nuevos'],['existe','Ya en WooCommerce'],['bajo','Margen bajo']],
-  cat:[['mov','Con movimientos'],['cambio','Por actualizar'],['isbn','ISBN'],['bajo','Margen bajo'],['sinlista','Sin lista'],['todos','Todos']]};
+const FILTERS={inv:[['stock','Con stock'],['agot','Agotados'],['mov','Con movimientos'],['todos','Todos']],
+  esc:[['todos','Todos'],['pend','Sin exportar'],['nuevo','Nuevos'],['existe','Ya en WooCommerce']],
+  precios:[['cambio','Por actualizar'],['isbn','ISBN con error'],['bajo','Margen bajo'],['sinlista','Sin lista']]};
+S.view='inv'; S.filter='stock';
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.view=b.dataset.v; S.filter=FILTERS[S.view][0][0]; renderList()});
 $('#filters').addEventListener('click',e=>{const b=e.target.closest('.f'); if(b){S.filter=b.dataset.f; renderList()}});
 $('#q').addEventListener('input',()=>renderList());
 function scanCalc(s){return calc(s.provArs,s.ed,s.ov)}
+const collator=new Intl.Collator('es',{numeric:true,sensitivity:'base'});
+function invItems(){
+  const out=S.D.cat.map(c=>({k:'c'+c.id,c,n:c.n,serie:c._sp.serie||c.n,isbn:c.i,st:stockOf(c),d:pendDelta(c.id),price:c.p}));
+  S.scans.filter(x=>!x.wooId).forEach(x=>out.push({k:'s'+x.id,sc:x,n:x.tit,serie:(x.serie||x.tit).toUpperCase(),isbn:x.isbn,st:+x.stock||0,d:0,price:scanCalc(x).final,nuevo:true}));
+  return out.sort((a,b)=>collator.compare(a.n,b.n));
+}
 function renderList(){
   if(!FILTERS[S.view].some(f=>f[0]===S.filter)) S.filter=FILTERS[S.view][0][0];
   $$('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
   $('#filters').innerHTML=FILTERS[S.view].map(([k,t])=>`<button class="f${k===S.filter?' on':''}" data-f="${k}">${t}</button>`).join('');
-  const q=norm($('#q').value), g=S.cfg.mg/100, f=S.filter; let rows=[], html='';
+  const q=norm($('#q').value), g=S.cfg.mg/100, f=S.filter; let rows=[], html='', LIM=400;
   const mgCls=m=>m>=g-.005?'ok':m>=.15?'mid':'low';
-  if(S.view==='esc'){
-    rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId)||(f==='bajo'&&r.mg<g-.005))&&(!q||norm(s.tit).includes(q)||s.isbn.includes(q)));
+  if(S.view==='inv'){
+    const all=invItems();
+    rows=all.filter(x=>(f==='todos'||(f==='stock'&&x.st>0)||(f==='agot'&&x.st<=0)||(f==='mov'&&x.d))&&(!q||norm(x.n).includes(q)||x.isbn.includes(q)));
+    let last='';
+    html=rows.slice(0,LIM).map(x=>{ const sk=norm(x.serie); let h='';
+      if(sk!==last){ last=sk; const n=rows.filter(y=>norm(y.serie)===sk); h=`<div class="grp">${esc(x.serie)} · ${n.length} ${n.length===1?'título':'títulos'} · ${n.reduce((a,y)=>a+Math.max(0,y.st),0)} en stock</div>` }
+      return h+`<div class="item click" data-k="${x.k}"><div class="t">${esc(x.n)}</div><div class="stk ${x.st>0?'':'zero'}">${x.st}</div>
+      <div class="m">${x.nuevo?'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>':''}${fmt(x.price)} · ${esc(x.isbn||'sin ISBN')}</div><div class="m" style="text-align:right">${x.d?`<span class="${x.d>0?'ok':'low'}">${x.d>0?'+':''}${x.d}</span>`:''}</div></div>` }).join('');
+    const enStock=all.filter(x=>x.st>0);
+    $('#lSub').textContent=`${enStock.length} títulos con stock · ${enStock.reduce((a,x)=>a+x.st,0)} tomos en total`;
+  } else if(S.view==='esc'){
+    rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId))&&(!q||norm(s.tit).includes(q)||s.isbn.includes(q)));
     html=rows.map(({s,r})=>`<div class="item click" data-id="${s.id}"><div class="t">${esc(s.tit)}</div><div class="p">${fmt(r.final)}</div>
-      <div class="m">${s.wooId?'<span class="tag man" style="margin:0 6px 0 0">existe</span>':'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>'}${s.exp?'exportado · ':''}${esc(s.ed)} · stock ${s.stock}</div><div class="mg ${mgCls(r.mg)}">${pct(r.mg)}</div>
-      <div class="m">${esc(r.rule)}${Object.values(s.ov).some(v=>v!==''&&v!=null)?' · <span class="mid">valores manuales</span>':''}</div><div class="mg ok">+${num(r.gan)}</div></div>`).join('');
+      <div class="m">${s.wooId?'<span class="tag man" style="margin:0 6px 0 0">existe</span>':'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>'}${s.exp?'exportado · ':'<b class="mid">sin exportar</b> · '}stock ${s.stock}</div><div class="mg ${mgCls(r.mg)}">${pct(r.mg)}</div>
+      <div class="m">${esc(r.rule)}${s.desc?'':' · <span class="low">sin sinopsis</span>'}</div><div class="mg ok">+${num(r.gan)}</div></div>`).join('');
     $('#lSub').textContent=`${S.scans.length} escaneados · ${S.scans.filter(s=>!s.exp).length} sin exportar`;
   } else {
-    rows=S.D.cat.map(c=>({c,r:catCalc(c)})).filter(({c,r})=>(f==='todos'||(f==='mov'&&S.mov.some(m=>m.k===c.id&&!m.exp))||(f==='cambio'&&r&&r.final!==c.p)||(f==='isbn'&&c._isbnBad)||(f==='bajo'&&r&&r.mg<g-.005)||(f==='sinlista'&&!r))&&(!q||norm(c.n).includes(q)||c.i.includes(q)));
-    html=rows.slice(0,150).map(({c,r})=>`<div class="item"><div class="t">${esc(c.n)}</div><div class="p">${r?fmt(r.final):fmt(c.p)}</div>
-      <div class="m">ID ${c.id} · stock ${(()=>{const d=pendDelta(c.id);return d?`${c.s} → <b>${c.s+d}</b>`:c.s})()}${c._isbnBad?' · <span class="low">'+esc(c._isbnBad)+'</span>':''}</div><div class="mg ${r?mgCls(r.mg):''}">${r?pct(r.mg):''}</div>
+    rows=S.D.cat.map(c=>({c,r:catCalc(c)})).filter(({c,r})=>((f==='cambio'&&r&&r.final!==c.p)||(f==='isbn'&&c._isbnBad)||(f==='bajo'&&r&&r.mg<g-.005)||(f==='sinlista'&&!r))&&(!q||norm(c.n).includes(q)||c.i.includes(q)));
+    html=rows.slice(0,LIM).map(({c,r})=>`<div class="item click" data-k="c${c.id}"><div class="t">${esc(c.n)}</div><div class="p">${r?fmt(r.final):fmt(c.p)}</div>
+      <div class="m">ID ${c.id} · stock ${stockOf(c)}${c._isbnBad?' · <span class="low">'+esc(c._isbnBad)+'</span>':''}</div><div class="mg ${r?mgCls(r.mg):''}">${r?pct(r.mg):''}</div>
       <div class="m">${r?(r.final!==c.p?`${fmt(c.p)} → ${fmt(r.final)} · `:'')+esc(r.rule):'Sin precio de proveedor'}</div><div class="mg ok">${r?'+'+num(r.gan):''}</div></div>`).join('');
-    $('#lSub').textContent=`${S.D.cat.length} en tu WooCommerce · ${rows.length} con este filtro`;
+    $('#lSub').textContent=`${rows.length} productos con este filtro`;
   }
-  $('#list').innerHTML=html||'<div class="empty">'+(S.view==='esc'&&!S.scans.length?'Aún no escaneas nada. Toca Escanear para cargar el primer tomo.':'Nada con este filtro.')+'</div>';
-  $('#more').textContent=S.view==='cat'&&rows.length>150?`Mostrando 150 de ${rows.length}. Usa la búsqueda para encontrar uno.`:'';
+  $('#list').innerHTML=html||'<div class="empty">'+(S.view==='esc'&&!S.scans.length?'Aún no escaneas nada. Toca Escanear para cargar el primer tomo.':S.view==='inv'&&!S.D.cat.length?'Importa tu catálogo de WooCommerce en Inicio para ver tu inventario.':'Nada con este filtro.')+'</div>';
+  $('#more').textContent=rows.length>LIM?`Mostrando ${LIM} de ${rows.length}. Usa la búsqueda para encontrar uno.`:'';
   renderExport();
 }
-$('#list').addEventListener('click',e=>{const it=e.target.closest('.item.click'); if(!it) return; const s=S.scans.find(x=>x.id===it.dataset.id); if(s){S.cur=structuredClone(s); go('ficha')}});
+$('#list').addEventListener('click',e=>{const it=e.target.closest('.item.click'); if(!it) return;
+  if(it.dataset.k){ openStock(it.dataset.k); return }
+  const s=S.scans.find(x=>x.id===it.dataset.id); if(s){S.cur=structuredClone(s); go('ficha')}});
+let K=null;
+function findKey(k){ if(k[0]==='c'){ const c=S.D.cat.find(x=>x.id===+k.slice(1)); return c&&{c,n:c.n,isbn:c.i,st:stockOf(c),base:c.s,price:c.p} }
+  const sc=S.scans.find(x=>x.id===k.slice(1)); return sc&&{sc,n:sc.tit,isbn:sc.isbn,st:+sc.stock||0,price:scanCalc(sc).final} }
+function openStock(k){ K=k; const x=findKey(k); if(!x) return;
+  $('#kT').textContent=x.n; $('#kS').textContent=`ISBN ${x.isbn||'—'} · ${fmt(x.price)}${x.c?' · ID '+x.c.id:' · producto nuevo'}`;
+  $('#kN').textContent=x.st; $('#kN').className='num'+(x.st>0?'':' low');
+  $('#kD').textContent=x.c?(x.st!==x.base?`En WooCommerce: ${x.base}. Diferencia sin exportar: ${x.st-x.base>0?'+':''}${x.st-x.base}`:'Igual que en WooCommerce'):'Se exporta con los productos nuevos';
+  $('#kSet').value=''; $('#stk').hidden=false }
+function changeStock(d,why){ const x=findKey(K); if(!x||!d) return; if(x.st+d<0){toast('El stock no puede quedar bajo 0.');return}
+  if(x.c){ S.mov.push({id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),t:Date.now(),k:x.c.id,isbn:x.isbn,n:x.n,d,why,exp:false}); saveMov() }
+  else { x.sc.stock=x.st+d; saveScan(x.sc) }
+  openStock(K); renderList(); renderHome() }
+$('#kMas').onclick=()=>changeStock(1,'llegó'); $('#kMenos').onclick=()=>changeStock(-1,'vendido');
+$('#kSetGo').onclick=()=>{ const v=$('#kSet').value; if(v===''){toast('Escribe cuántos tomos contaste.');return} const x=findKey(K); changeStock(Math.max(0,Math.round(+v))-x.st,'conteo') };
+$('#kClose').onclick=()=>$('#stk').hidden=true;
+$('#kFicha').onclick=()=>{ const x=findKey(K); $('#stk').hidden=true; if(!x) return;
+  if(x.sc){ S.cur=structuredClone(x.sc) } else { const prev=S.scans.find(s=>s.wooId===x.c.id); S.cur=prev?structuredClone(prev):newScan({isbn:x.c.i,p:IDX.prov.get(x.c.i)||x.c._prov,c:x.c}) }
+  go('ficha') };
+$('#stk').addEventListener('click',e=>{ if(e.target.id==='stk') $('#stk').hidden=true });
 
 /* ================= exportar ================= */
 function changedCat(){return S.D.cat.map(c=>({c,r:catCalc(c)})).filter(x=>x.r&&x.r.final!==x.c.p)}
 function renderExport(){
-  const nuevos=S.scans.filter(s=>!s.wooId), pendN=nuevos.filter(s=>!s.exp).length, exist=S.scans.filter(s=>s.wooId&&!s.exp), ch=changedCat().length;
-  $('#exp').innerHTML=`
-    <button class="btn primary" id="xNew" ${nuevos.length?'':'disabled'}>Exportar productos nuevos (${pendN||nuevos.length})</button>
-    <button class="btn ghost" id="xPrice" ${ch+exist.length?'':'disabled'}>Exportar cambios de precio y stock (${ch+exist.length})</button>
-    <button class="btn ghost" id="xStock" ${S.mov.some(m=>!m.exp)?'':'disabled'}>Exportar stock (${new Set(S.mov.filter(m=>!m.exp).map(m=>m.k)).size} productos)</button>
-    <p class="sub">Stock: ID, nombre e inventario de los productos con ventas o llegadas registradas. Nuevos: CSV con las 41 columnas de tu WooCommerce, se crean al importar. Cambios: ID, nombre, precio y stock, se actualizan por ID (marca "Actualizar productos existentes" al importar).</p>`;
-  $('#xNew').onclick=()=>exportNew(); $('#xStock').onclick=()=>exportStock(); $('#xPrice').onclick=()=>exportPrices();
+  const nuevos=S.scans.filter(s=>!s.wooId), pendN=nuevos.filter(s=>!s.exp).length, exist=S.scans.filter(s=>s.wooId&&!s.exp), ch=changedCat().length, stN=new Set(S.mov.filter(m=>!m.exp).map(m=>m.k)).size;
+  const show=S.view==='precios'?['price']:S.view==='inv'?['stock','new']:['new','price'];
+  const B={new:`<button class="btn ${pendN?'primary':'ghost'}" id="xNew" ${nuevos.length?'':'disabled'}>Exportar productos nuevos (${pendN} sin exportar)</button>`,
+    stock:`<button class="btn ${stN?'primary':'ghost'}" id="xStock" ${stN?'':'disabled'}>Exportar stock (${stN} productos)</button>`,
+    price:`<button class="btn ghost" id="xPrice" ${ch+exist.length?'':'disabled'}>Exportar precios y stock de existentes (${ch+exist.length})</button>`};
+  $('#exp').innerHTML=`<div class="lbl">Exportar a WooCommerce</div>`+show.map(k=>B[k]).join('')+
+    `<p class="sub">${S.view==='precios'?'Se actualizan por ID: al importar en WooCommerce marca "Actualizar productos existentes".':'Nuevos: se crean al importar. Stock: se actualiza por ID (marca "Actualizar productos existentes").'} Si no ves un escaneo aquí, revisa que lo hayas guardado en la ficha.</p>`;
+  $('#xNew')&&($('#xNew').onclick=()=>exportNew()); $('#xStock')&&($('#xStock').onclick=()=>exportStock()); $('#xPrice')&&($('#xPrice').onclick=()=>exportPrices());
 }
 const csvCell=v=>{v=v==null?'':String(v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
 const toCsv=(cols,rows)=>'\ufeff'+[cols.map(csvCell).join(','),...rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))].join('\r\n');
@@ -832,15 +891,18 @@ async function exportStock(){
   if(ok){ S.mov.forEach(m=>{ if(!m.exp){ const c=byId.get(m.k); if(c){} m.exp=true } }); rows.forEach(r=>{const c=byId.get(r.ID); c.s=r.Inventario}); persistData(); saveMov(); renderList() }
 }
 const stamp=()=>new Date().toISOString().slice(0,10);
-async function deliver(name,text,label){
-  try{
-    const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
-    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000); toast('Descargado: '+label); return true;
-  }catch(e){
-    $('#shT').textContent=name; $('#shS').textContent=`${label}. Copia el texto y guárdalo como .csv.`; $('#shTxt').value=text; $('#sheet').hidden=false; return true;
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+async function saveFile(name,text,type,label){
+  const file=new File([text],name,{type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})&&(isIOS||!('download' in HTMLAnchorElement.prototype))){
+    try{ await navigator.share({files:[file],title:name}); toast('Listo: '+label+'. Elige "Guardar en Archivos".'); return true }
+    catch(e){ if(e&&e.name==='AbortError'){ toast('Exportación cancelada.'); return false } }
   }
+  try{ const url=URL.createObjectURL(file); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),8000); toast('Descargado en tu carpeta Descargas: '+label); return true }
+  catch(e){ $('#shT').textContent=name; $('#shS').textContent=`${label}. Copia el texto y guárdalo como archivo.`; $('#shTxt').value=text; $('#sheet').hidden=false; return true }
 }
+const deliver=(name,text,label)=>saveFile(name,text,'text/csv',label);
 $('#shClose').addEventListener('click',()=>$('#sheet').hidden=true);
 $('#shCopy').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText($('#shTxt').value); toast('Copiado.') }catch{ $('#shTxt').select(); toast('Selecciona y copia el texto.') } });
 
@@ -940,7 +1002,7 @@ $('#fileProv').onchange=async e=>{ const f=e.target.files[0]; e.target.value='';
   $('#shTxt').value=[...up.map(x=>'SUBE  '+x),...down.map(x=>'BAJA  '+x)].join('\n')||'Ningún precio cambió.'; $('#sheet').hidden=false;
 };
 $('#bkSave').onclick=()=>{ const t=JSON.stringify({v:1,fecha:new Date().toISOString(),cfg:S.cfg,scans:S.scans,mov:S.mov});
-  const url=URL.createObjectURL(new Blob([t],{type:'application/json'})); const a=document.createElement('a'); a.href=url; a.download='respaldo_bodega_'+stamp()+'.json'; document.body.appendChild(a); a.click(); a.remove(); toast('Respaldo descargado.') };
+  saveFile('respaldo_bodega_'+stamp()+'.json',t,'application/json','respaldo') };
 $('#bkLoad').onclick=()=>$('#fileBk').click();
 $('#fileBk').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{ const b=JSON.parse(await f.text()); if(!b.cfg||!Array.isArray(b.scans)) throw 0;
@@ -950,6 +1012,34 @@ function renderAll(){ $('#onboard').hidden=!!(S.D.cat.length&&S.D.prov.length);
   $('#obCat').disabled=!!S.D.cat.length; $('#obProv').disabled=!!S.D.prov.length;
   $('#obCat').textContent=(S.D.cat.length?'✓ Catálogo importado':'1 · Importar catálogo WooCommerce (CSV)'); $('#obProv').textContent=(S.D.prov.length?'✓ Lista importada':'2 · Importar lista del proveedor (Excel)'); renderAjustes(); renderHome(); renderList(); $('#srcLbl').textContent='Bodega · lista '+S.D.fecha;
   $('#dCat').textContent=`${S.D.cat.length} productos${S.D.catFecha?' · '+S.D.catFecha:''}`; $('#dProv').textContent=`${S.D.prov.length} productos · ${S.D.fecha}` }
+
+/* ================= sinopsis desde foto (OCR en el teléfono) ================= */
+$('#ocrBtn').onclick=()=>$('#ocrIn').click();
+const ocrSt=t=>$('#ocrSt').textContent=t;
+function cleanSynopsis(t){
+  const bad=/isbn|www\.|\.com|\.ar\b|ivrea|panini|planeta c|impreso|precio|editorial|copyright|©|todos los derechos|\d{6,}/i;
+  const good=l=>{ const L=(l.match(/[a-záéíóúñü]/gi)||[]).length; return L>=4&&L>=l.replace(/\s/g,'').length*.7&&!bad.test(l) };
+  const blocks=[]; let cur=[];
+  t.replace(/\r/g,'').split('\n').map(l=>l.trim()).forEach(l=>{ if(!l||!good(l)){ if(cur.length){blocks.push(cur);cur=[]} } else cur.push(l) });
+  if(cur.length) blocks.push(cur);
+  const join=b=>b.reduce((a,l)=>!a?l:/[-‐]$/.test(a)&&/^[a-záéíóúñ]/.test(l)?a.slice(0,-1)+l:a+' '+l,'')
+    .replace(/\s+([,.;:!?»)])/g,'$1').replace(/([¿¡«(])\s+/g,'$1').replace(/\s{2,}/g,' ').replace(/\|/g,'I').trim();
+  return blocks.map(join).filter(p=>p.length>=50&&/[.!?…»]$|\w$/.test(p)).join('\n\n');
+}
+$('#ocrIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f||!S.cur) return;
+  const btn=$('#ocrBtn'); btn.disabled=true; ocrSt('Preparando el lector…');
+  try{
+    if(!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+    const cv=await toCanvas(f,2000), cx=cv.getContext('2d'), im=cx.getImageData(0,0,cv.width,cv.height), d=im.data;
+    for(let i=0;i<d.length;i+=4){ const y=.299*d[i]+.587*d[i+1]+.114*d[i+2]; const v=Math.max(0,Math.min(255,(y-128)*1.35+128)); d[i]=d[i+1]=d[i+2]=v } cx.putImageData(im,0,0);
+    const w=await Tesseract.createWorker('spa',1,{logger:m=>{ if(m.status==='recognizing text') ocrSt(`Leyendo el texto… ${Math.round(m.progress*100)}%`); else if(/load|download|initializ/i.test(m.status)) ocrSt('Descargando el lector de español (solo la primera vez)…') }});
+    const {data}=await w.recognize(cv); await w.terminate();
+    const txt=cleanSynopsis(data.text||'');
+    if(txt){ S.cur.desc=txt; renderFicha(); ocrSt('Listo. Revisa el texto: el lector puede equivocarse en algunas letras.') }
+    else ocrSt('No pude leer la sinopsis. Prueba con más luz, la foto derecha y acercándote al texto.');
+  }catch(err){ ocrSt(navigator.onLine?'No se pudo leer la foto. Prueba otra vez.':'La primera lectura necesita internet para descargar el lector. Después funciona sin conexión.') }
+  btn.disabled=false;
+};
 
 /* ================= arranque ================= */
 (async function start(){
