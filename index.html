@@ -262,8 +262,8 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     <!-- ESCANEAR -->
     <section class="screen" id="s-escanear" aria-label="Escanear">
       <div><h3 class="h">Escanear tomo</h3><p class="sub">Apunta al código de barras de la contratapa.</p></div>
-      <div class="seg3" id="mode" role="tablist" aria-label="Modo de escaneo"><button data-m="nuevo" class="on">Cargar</button><button data-m="mas">Llegó +1</button><button data-m="menos">Vendido −1</button></div>
-      <p class="sub" id="modeHint">Escanea un tomo para armar su ficha con precio.</p>
+      <div class="seg3" id="mode" role="tablist" aria-label="Modo de escaneo"><button data-m="nuevo" class="on">Ficha y precio</button><button data-m="mas">Llegó +1</button><button data-m="menos">Vendí −1</button></div>
+      <p class="sub" id="modeHint">Lee el código y te muestra el producto: si está en Entelequia, si ya lo tienes en tu tienda, su costo y su precio. Úsalo para cargar tomos nuevos o revisar uno.</p>
       <input type="file" id="cam" accept="image/*" capture="environment" hidden>
       <div class="cam" id="camBox">
         <video id="vid" playsinline muted hidden></video>
@@ -313,7 +313,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div class="field"><label for="fTit">Título <span class="tag auto" id="tgTit">auto</span></label><input id="fTit"></div>
         <div class="two">
           <div class="field"><label for="fIsbn">ISBN</label><input id="fIsbn" class="mono" inputmode="numeric"></div>
-          <div class="field"><label for="fStock">Stock</label><input id="fStock" class="mono" type="number" min="0"></div>
+          <div class="field"><label for="fStock">Stock en tu inventario</label><input id="fStock" class="mono" type="number" min="0"></div>
         </div>
         <div class="two">
           <div class="field"><label for="fSerie">Serie</label><input id="fSerie"></div>
@@ -546,6 +546,8 @@ async function delScan(id){ S.scans=S.scans.filter(x=>x.id!==id); persist('pm_sc
 const saveMov=()=>persist('pm_mov',S.mov);
 const pendDelta=id=>S.mov.reduce((a,m)=>a+(m.k===id&&!m.exp?m.d:0),0);
 const stockOf=c=>c.s+pendDelta(c.id);
+const catById=id=>S.D.cat.find(c=>c.id===id);
+function loadCur(sc){ const x=structuredClone(sc); if(x.wooId){ const c=catById(x.wooId); if(c) x.stock=stockOf(c) } return x }
 
 /* ================= navegación ================= */
 function go(id,o={}){
@@ -581,7 +583,7 @@ function renderHome(){
 
 /* ================= escanear ================= */
 S.mode='nuevo';
-const HINT={nuevo:'Escanea un tomo para armar su ficha con precio.',mas:'Cada código que leas suma 1 al stock. Puedes escanear seguido.',menos:'Cada código que leas descuenta 1 del stock. Puedes escanear seguido.'};
+const HINT={nuevo:'Lee el código y te muestra el producto: si está en Entelequia, si ya lo tienes en tu tienda, su costo y su precio. Úsalo para cargar tomos nuevos o revisar uno.',mas:'Llegó mercadería: cada código que leas suma 1 a tu inventario. Puedes pasar los tomos seguido.',menos:'Vendiste: cada código que leas resta 1 de tu inventario. Puedes pasar los tomos seguido.'};
 $('#mode').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.mode=b.dataset.m;
   $$('#mode button').forEach(x=>x.classList.toggle('on',x===b)); $('#modeHint').textContent=HINT[S.mode]; steps([]); $('#toFicha').hidden=true; $('#tSearch').hidden=true});
 $('#camBtn').addEventListener('click',()=>live.on?stopLive():startLive());
@@ -673,7 +675,7 @@ $('#tRes').addEventListener('click',e=>{const b=e.target.closest('.res'); if(!b)
   pending.p=p; pending.byTitle=true; steps([['ok','✓',`ISBN <span class="mono">${pending.isbn}</span> leído`],['wa','✓',`Confirmado por título: <b>${esc(p[1])}</b> · ${esc(p[2])} · ${fmt(p[3])} ARS${p[0]&&p[0]!==pending.isbn?' · <span class="low">en la lista tiene otro ISBN ('+p[0]+')</span>':''}`],['ok','✓','No existe en tu WooCommerce: producto nuevo']]);
   $('#tSearch').hidden=true; $('#toFicha').textContent='Ver ficha'; });
 $('#toFicha').addEventListener('click',()=>{ if(!pending) return;
-  S.cur = pending.prevScan ? structuredClone(pending.prevScan) : newScan(pending); go('ficha'); });
+  S.cur = pending.prevScan ? loadCur(pending.prevScan) : newScan(pending); go('ficha'); });
 
 function moveStock(isbn,d){
   const c=IDX.cat.get(isbn), sc=S.scans.find(x=>x.isbn===isbn), box=$('#lastMove');
@@ -687,7 +689,7 @@ function moveStock(isbn,d){
   const after=before+d;
   box.insertAdjacentHTML('afterbegin',`<div class="move ${d>0?'mas':'menos'}" data-mid="${m.id}"><div><div class="t">${esc(name)}</div><div class="m">${d>0?'Llegó +1':'Vendido −1'} · stock ${before} → ${after}</div></div><div style="display:flex;gap:8px;align-items:center"><span class="st ${after>0?'':'low'}">${after}</span><button class="btn ghost sm" data-undo="${m.id}" data-scan="${c?'':sc.id}" data-d="${d}">Deshacer</button></div></div>`);
   while(box.children.length>6) box.lastElementChild.remove();
-  toast(`${d>0?'+1':'−1'} · ${name} · quedan ${after}`);
+  toast(`${d>0?'+1':'−1'} · ${name} · quedan ${after}`); renderHome(); renderList();
 }
 $('#lastMove').addEventListener('click',e=>{
   const u=e.target.closest('[data-undo]'), n=e.target.closest('[data-new]');
@@ -700,7 +702,7 @@ function pad(n,w){return String(+n).padStart(w,'0')}
 function newScan({isbn,p,c,byTitle}){
   const ed=p?p[2]:(c&&c._prov?c._prov[2]:'Ivrea'); const E=edOf(ed);
   const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:Date.now(),isbn,ed,provArs:p?p[3]:0,provTit:p?p[1]:'',byTitle:!!byTitle,
-    wooId:c?c.id:null,wooPrice:c?c.p:null,stock:c?stockOf(c)+1:1,ov:{ars:'',clp:'',dto:'',env:'',man:''},manTit:false,manCat:false,
+    wooId:c?c.id:null,wooPrice:c?c.p:null,stock:c?stockOf(c):1,ov:{ars:'',clp:'',dto:'',env:'',man:''},manTit:false,manCat:false,
     tit:'',serie:'',tomo:'',autor:'',gen:'Shonen',est:'En Curso',for:'Tapa blanda',marca:E.m||'',cats:'',tags:'',desc:'',img:'',w:null,exp:false};
   if(c){ // ya existe: copiar su ficha
     Object.assign(s,{tit:c.n,serie:c._sp.serie,tomo:c._sp.num,autor:c.au,gen:c.ge||'Shonen',est:c.es||'En Curso',for:c.fo||'Tapa blanda',marca:c.m||s.marca,cats:c.c,tags:c.g,w:c.w,manTit:true,manCat:true});
@@ -766,6 +768,8 @@ Object.entries(FMAP).forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{ c
 Object.entries(OMAP).forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{ if(!S.cur) return; S.cur.ov[k]=e.target.value; if(k==='ars'&&e.target.value) {S.cur.ov.clp=''} if(k==='clp'&&e.target.value){S.cur.ov.ars=''} renderFicha() }));
 $('#fSave').addEventListener('click',async()=>{ const s=S.cur; if(!s) return;
   if(!s.tit.trim()){toast('Falta el título.');return}
+  if(s.wooId){ const c=catById(s.wooId); if(c){ const d=Math.max(0,+s.stock||0)-stockOf(c);
+      if(d){ S.mov.push({id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),t:Date.now(),k:c.id,isbn:c.i,n:c.n,d,why:'ficha',exp:false}); saveMov() } } }
   s.exp=false; s.t=s.t||Date.now(); await saveScan(structuredClone(s)); toast('Guardado: '+s.tit+' a '+$('#pFinal').textContent);
   S.cur=null; setTimeout(()=>go('productos',{view:'esc',filter:'pend'}),500); });
 let delArm=0;
@@ -794,9 +798,10 @@ function renderList(){
   $('#filters').innerHTML=FILTERS[S.view].map(([k,t])=>`<button class="f${k===S.filter?' on':''}" data-f="${k}">${t}</button>`).join('');
   const q=norm($('#q').value), g=S.cfg.mg/100, f=S.filter; let rows=[], html='', LIM=400;
   const mgCls=m=>m>=g-.005?'ok':m>=.15?'mid':'low';
+  const qw=q.split(' ').filter(Boolean), hit=(n,i)=>!qw.length||(i||'').includes(q.replace(/ /g,''))||qw.every(w=>{const t=' '+norm(n)+' '; return /^\d+$/.test(w)?new RegExp(' 0*'+(+w)+' ').test(t):t.includes(w)});
   if(S.view==='inv'){
     const all=invItems();
-    rows=all.filter(x=>(f==='todos'||(f==='stock'&&x.st>0)||(f==='agot'&&x.st<=0)||(f==='mov'&&x.d))&&(!q||norm(x.n).includes(q)||x.isbn.includes(q)));
+    rows=all.filter(x=>(f==='todos'||(f==='stock'&&x.st>0)||(f==='agot'&&x.st<=0)||(f==='mov'&&x.d))&&hit(x.n,x.isbn));
     let last='';
     html=rows.slice(0,LIM).map(x=>{ const sk=norm(x.serie); let h='';
       if(sk!==last){ last=sk; const n=rows.filter(y=>norm(y.serie)===sk); h=`<div class="grp">${esc(x.serie)} · ${n.length} ${n.length===1?'título':'títulos'} · ${n.reduce((a,y)=>a+Math.max(0,y.st),0)} en stock</div>` }
@@ -805,13 +810,13 @@ function renderList(){
     const enStock=all.filter(x=>x.st>0);
     $('#lSub').textContent=`${enStock.length} títulos con stock · ${enStock.reduce((a,x)=>a+x.st,0)} tomos en total`;
   } else if(S.view==='esc'){
-    rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId))&&(!q||norm(s.tit).includes(q)||s.isbn.includes(q)));
+    rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId))&&hit(s.tit,s.isbn));
     html=rows.map(({s,r})=>`<div class="item click" data-id="${s.id}"><div class="t">${esc(s.tit)}</div><div class="p">${fmt(r.final)}</div>
-      <div class="m">${s.wooId?'<span class="tag man" style="margin:0 6px 0 0">existe</span>':'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>'}${s.exp?'exportado · ':'<b class="mid">sin exportar</b> · '}stock ${s.stock}</div><div class="mg ${mgCls(r.mg)}">${pct(r.mg)}</div>
+      <div class="m">${s.wooId?'<span class="tag man" style="margin:0 6px 0 0">existe</span>':'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>'}${s.exp?'exportado · ':'<b class="mid">sin exportar</b> · '}stock ${s.wooId&&catById(s.wooId)?stockOf(catById(s.wooId)):s.stock}</div><div class="mg ${mgCls(r.mg)}">${pct(r.mg)}</div>
       <div class="m">${esc(r.rule)}${s.desc?'':' · <span class="low">sin sinopsis</span>'}</div><div class="mg ok">+${num(r.gan)}</div></div>`).join('');
     $('#lSub').textContent=`${S.scans.length} escaneados · ${S.scans.filter(s=>!s.exp).length} sin exportar`;
   } else {
-    rows=S.D.cat.map(c=>({c,r:catCalc(c)})).filter(({c,r})=>((f==='cambio'&&r&&r.final!==c.p)||(f==='isbn'&&c._isbnBad)||(f==='bajo'&&r&&r.mg<g-.005)||(f==='sinlista'&&!r))&&(!q||norm(c.n).includes(q)||c.i.includes(q)));
+    rows=S.D.cat.map(c=>({c,r:catCalc(c)})).filter(({c,r})=>((f==='cambio'&&r&&r.final!==c.p)||(f==='isbn'&&c._isbnBad)||(f==='bajo'&&r&&r.mg<g-.005)||(f==='sinlista'&&!r))&&hit(c.n,c.i));
     html=rows.slice(0,LIM).map(({c,r})=>`<div class="item click" data-k="c${c.id}"><div class="t">${esc(c.n)}</div><div class="p">${r?fmt(r.final):fmt(c.p)}</div>
       <div class="m">ID ${c.id} · stock ${stockOf(c)}${c._isbnBad?' · <span class="low">'+esc(c._isbnBad)+'</span>':''}</div><div class="mg ${r?mgCls(r.mg):''}">${r?pct(r.mg):''}</div>
       <div class="m">${r?(r.final!==c.p?`${fmt(c.p)} → ${fmt(r.final)} · `:'')+esc(r.rule):'Sin precio de proveedor'}</div><div class="mg ok">${r?'+'+num(r.gan):''}</div></div>`).join('');
@@ -823,7 +828,7 @@ function renderList(){
 }
 $('#list').addEventListener('click',e=>{const it=e.target.closest('.item.click'); if(!it) return;
   if(it.dataset.k){ openStock(it.dataset.k); return }
-  const s=S.scans.find(x=>x.id===it.dataset.id); if(s){S.cur=structuredClone(s); go('ficha')}});
+  const s=S.scans.find(x=>x.id===it.dataset.id); if(s){S.cur=loadCur(s); go('ficha')}});
 let K=null;
 function findKey(k){ if(k[0]==='c'){ const c=S.D.cat.find(x=>x.id===+k.slice(1)); return c&&{c,n:c.n,isbn:c.i,st:stockOf(c),base:c.s,price:c.p} }
   const sc=S.scans.find(x=>x.id===k.slice(1)); return sc&&{sc,n:sc.tit,isbn:sc.isbn,st:+sc.stock||0,price:scanCalc(sc).final} }
@@ -840,7 +845,7 @@ $('#kMas').onclick=()=>changeStock(1,'llegó'); $('#kMenos').onclick=()=>changeS
 $('#kSetGo').onclick=()=>{ const v=$('#kSet').value; if(v===''){toast('Escribe cuántos tomos contaste.');return} const x=findKey(K); changeStock(Math.max(0,Math.round(+v))-x.st,'conteo') };
 $('#kClose').onclick=()=>$('#stk').hidden=true;
 $('#kFicha').onclick=()=>{ const x=findKey(K); $('#stk').hidden=true; if(!x) return;
-  if(x.sc){ S.cur=structuredClone(x.sc) } else { const prev=S.scans.find(s=>s.wooId===x.c.id); S.cur=prev?structuredClone(prev):newScan({isbn:x.c.i,p:IDX.prov.get(x.c.i)||x.c._prov,c:x.c}) }
+  if(x.sc){ S.cur=loadCur(x.sc) } else { const prev=S.scans.find(s=>s.wooId===x.c.id); S.cur=prev?loadCur(prev):newScan({isbn:x.c.i,p:IDX.prov.get(x.c.i)||x.c._prov,c:x.c}) }
   go('ficha') };
 $('#stk').addEventListener('click',e=>{ if(e.target.id==='stk') $('#stk').hidden=true });
 
@@ -878,11 +883,12 @@ async function exportNew(){
 async function exportPrices(){
   const cols=['ID','Nombre','Precio normal','¿Existencias?','Inventario'];
   const ex=S.scans.filter(s=>s.wooId&&!s.exp), exIds=new Set(ex.map(s=>s.wooId));
-  const rows=ex.map(s=>{const r=scanCalc(s); return{'ID':s.wooId,'Nombre':s.tit,'Precio normal':Math.round(r.final),'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock}});
+  const rows=ex.map(s=>{const r=scanCalc(s), c=catById(s.wooId), st=Math.max(0,c?stockOf(c):+s.stock||0); return{'ID':s.wooId,'Nombre':s.tit,'Precio normal':Math.round(r.final),'¿Existencias?':st>0?1:0,'Inventario':st}});
   // catálogo: solo precio; el stock queda vacío para no pisar el de tu tienda
   changedCat().filter(x=>!exIds.has(x.c.id)).forEach(({c,r})=>rows.push({'ID':c.id,'Nombre':c.n,'Precio normal':Math.round(r.final)}));
   const ok=await deliver('woocommerce_precios_'+stamp()+'.csv',toCsv(cols,rows),`${rows.length} productos con cambios`);
-  if(ok){ for(const s of ex){ s.exp=true; await saveScan(s) } renderList() }
+  if(ok){ for(const s of ex){ s.exp=true; await saveScan(s); const c=catById(s.wooId); if(c){ c.s=Math.max(0,stockOf(c)); S.mov.forEach(m=>{ if(m.k===c.id) m.exp=true }) } }
+    S.mov=S.mov.filter(m=>!m.exp||!ex.some(s=>s.wooId===m.k)); saveMov(); persistData(); renderList() }
 }
 async function exportStock(){
   const ids=[...new Set(S.mov.filter(m=>!m.exp).map(m=>m.k))], byId=new Map(S.D.cat.map(c=>[c.id,c]));
