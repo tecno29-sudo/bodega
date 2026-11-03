@@ -254,6 +254,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div class="kpi" data-go="productos" data-view="inv" data-filter="stock" style="cursor:pointer"><div class="lbl">Tomos ›</div><div class="v" id="kLista">—</div></div>
         <div class="kpi"><div class="lbl">Al objetivo</div><div class="v" id="kObj">—</div></div>
       </div>
+      <button class="banner wa" id="bkWarn" type="button" hidden style="border:0;text-align:left;cursor:pointer;font:inherit;font-weight:700"><span id="bkWarnT"></span><span id="bkWarnD">Toca aquí para guardarlo en Archivos, Google Drive o iCloud.</span></button>
       <div class="sec"><h3>Requiere atención</h3></div>
       <div class="alerts">
         <button class="alert s-warn" data-go="productos" data-view="precios" data-filter="cambio"><i></i><div><div class="t">Precios por actualizar</div><div class="d">El precio calculado no es el de tu WooCommerce</div></div><span class="n" id="aCambio">0</span></button>
@@ -584,7 +585,14 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-go]'); if(
 let tt; function toast(m){const t=$('#toast'); t.textContent=m; t.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2600)}
 
 /* ================= inicio ================= */
-function renderHome(){
+function renderBk(){
+  const last=lsGet('pm_bk'), hasData=S.scans.length||S.mov.length, days=last?Math.floor((Date.now()-last)/864e5):null;
+  const show=hasData&&(days===null||days>=7); $('#bkWarn').hidden=!show;
+  if(show) $('#bkWarnT').textContent=days===null?'Aún no guardas un respaldo de la app':`Tu último respaldo fue hace ${days} días`;
+}
+async function doBackup(){ const t=JSON.stringify({v:1,fecha:new Date().toISOString(),cfg:S.cfg,scans:S.scans,mov:S.mov});
+  const ok=await saveFile('respaldo_bodega_'+stamp()+'.json',t,'application/json','respaldo'); if(ok){ persist('pm_bk',Date.now()); renderBk() } }
+function renderHome(){ renderBk();
   const D=S.D, g=S.cfg.mg/100; let gan=0,stock=0,mgs=[],cambio=0,bad=0,obj=0,enLista=0; const byEd={};
   D.cat.forEach(c=>{ if(c._isbnBad) bad++; const r=catCalc(c); if(!r) return; enLista++;
     if(r.final!==c.p) cambio++; if(r.mg>=g-.005) obj++; mgs.push(r.mg);
@@ -1078,8 +1086,7 @@ $('#fileProv').onchange=async e=>{ const f=e.target.files[0]; e.target.value='';
   $('#shS').textContent=`${up.length} suben, ${down.length} bajan, ${nuevos} nuevos.${dtoUpd?` ${dtoUpd} descuentos actualizados desde "Totales".`:''} Cambia el precio calculado de ${afect} productos de tu tienda (filtro "Por actualizar").`;
   $('#shTxt').value=[...up.map(x=>'SUBE  '+x),...down.map(x=>'BAJA  '+x)].join('\n')||'Ningún precio cambió.'; $('#sheet').hidden=false;
 };
-$('#bkSave').onclick=()=>{ const t=JSON.stringify({v:1,fecha:new Date().toISOString(),cfg:S.cfg,scans:S.scans,mov:S.mov});
-  saveFile('respaldo_bodega_'+stamp()+'.json',t,'application/json','respaldo') };
+$('#bkSave').onclick=()=>doBackup(); $('#bkWarn').onclick=()=>doBackup();
 $('#bkLoad').onclick=()=>$('#fileBk').click();
 $('#fileBk').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{ const b=JSON.parse(await f.text()); if(!b.cfg||!Array.isArray(b.scans)) throw 0;
