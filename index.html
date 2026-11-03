@@ -54,7 +54,12 @@ body{background:var(--desk);color:var(--ink);font-family:var(--f-body);font-size
 .logo{width:34px;height:34px;border-radius:10px;background:var(--pig);display:grid;place-items:center;color:var(--onpig);font-family:var(--f-display);font-size:16px}
 .brand h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:19px;letter-spacing:.2px}
 .brand small{display:block;color:var(--muted);font-size:12px;margin-top:-2px}
-.sync{margin-left:auto;font-size:11px;color:var(--muted);text-align:right;max-width:120px;line-height:1.2}
+.sync{font-size:11px;color:var(--muted);text-align:right;max-width:110px;line-height:1.2}
+.updBtn{margin-left:auto;display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:12px;padding:8px 10px;font:700 13px var(--f-body);cursor:pointer;flex:0 0 auto}
+.updBtn svg{width:18px;height:18px}
+.updBtn .dot{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.updRow{display:grid;grid-template-columns:1fr;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+.updRow .m{font-size:12px;color:var(--muted)}
 .sync.ok{color:var(--good)} .sync.local{color:var(--warn)}
 .screen{flex:1;overflow-y:auto;padding:16px 16px 28px;display:none;flex-direction:column;gap:14px}
 .screen.on{display:flex}
@@ -226,6 +231,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
       <div class="brand">
         <div class="logo" aria-hidden="true">豚</div>
         <div><h2>PorcinoMangas</h2><small id="srcLbl">Bodega · lista Entelequia</small></div>
+        <button class="updBtn" id="updOpen" type="button" aria-label="Actualizar listas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.9-3.9M4 4v4h4M4 13a8 8 0 0 0 14.9 3.9M20 20v-4h-4"/></svg>Actualizar<span class="dot" id="updDot" hidden></span></button>
         <div class="sync" id="sync">Cargando…</div>
       </div>
     </header>
@@ -413,6 +419,14 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     </section>
 
     <div class="toast" id="toast" role="status"></div>
+    <div class="sheet" id="upd" hidden><div class="in">
+      <h3 class="h" style="font-size:20px">Actualizar listas</h3>
+      <p class="sub">Sube el archivo más reciente. Los precios se recalculan solos y te muestro qué cambió. Tus escaneos, ventas y ajustes no se borran.</p>
+      <div class="updRow"><b>Lista del proveedor (Excel)</b><span class="m" id="uProv"></span><button class="btn primary" id="uProvBtn" type="button">Subir lista nueva de Entelequia</button></div>
+      <div class="updRow"><b>Catálogo de WordPress (CSV)</b><span class="m" id="uCat"></span><button class="btn primary" id="uCatBtn" type="button">Subir exportación de WooCommerce</button>
+        <span class="m">Antes de subirlo, exporta el stock pendiente para no perder ventas registradas en el teléfono.</span></div>
+      <button class="btn ghost" id="uClose" type="button">Cerrar</button>
+    </div></div>
     <div class="sheet" id="stk" hidden><div class="in">
       <h3 class="h" style="font-size:18px" id="kT"></h3>
       <p class="sub" id="kS"></p>
@@ -536,9 +550,9 @@ async function initStore(){
   S.cfg={...structuredClone(DEF),...(lsGet('pm_cfg')||{})};
   S.scans=(lsGet('pm_scans')||[]).sort((a,b)=>(b.t||0)-(a.t||0));
   S.mov=lsGet('pm_mov')||[];
-  setSync(navigator.onLine?'ok':'local',navigator.onLine?'Guardado en el teléfono':'Sin conexión · todo guardado');
+  setSync(navigator.onLine?'ok':'local',navigator.onLine?'Guardado':'Sin conexión');
 }
-addEventListener('online',()=>setSync('ok','Guardado en el teléfono')); addEventListener('offline',()=>setSync('local','Sin conexión · todo guardado'));
+addEventListener('online',()=>setSync('ok','Guardado')); addEventListener('offline',()=>setSync('local','Sin conexión'));
 function setSync(cls,t){const e=$('#sync'); e.className='sync '+cls; e.textContent=t}
 function persist(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true }catch(e){ toast('El teléfono no tiene espacio para guardar. Haz un respaldo y libera espacio.'); return false } }
 function saveCfg(){ clearTimeout(saveT); saveT=setTimeout(()=>persist('pm_cfg',S.cfg),300) }
@@ -1010,7 +1024,7 @@ $('#fileCat').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; 
   const cat=rows.slice(1).filter(r=>r.length>5&&get(r,'ID')).map(r=>{const sd=get(r,'Descripción corta'); return{id:+get(r,'ID'),n:get(r,'Nombre'),i:get(r,'GTIN, UPC, EAN o ISBN').replace(/\D/g,''),p:+get(r,'Precio normal')||0,s:+get(r,'Inventario')||0,
     m:get(r,'Marcas'),c:get(r,'Categorías'),g:get(r,'Etiquetas'),au:cellOf(sd,'Autor'),ge:cellOf(sd,'Género'),es:cellOf(sd,'Estado'),fo:cellOf(sd,'Formato'),w:[get(r,'Peso (kg)'),get(r,'Longitud (cm)'),get(r,'Anchura (cm)'),get(r,'Altura (cm)')]}});
   const def={}; Object.keys(S.D.def).forEach(k=>{ if(ix(k)>=0) def[k]=most(k) });
-  S.D.cat=cat; S.D.cols=h; S.D.def={...S.D.def,...def}; S.D.catFecha=new Date().toLocaleDateString('es-CL');
+  S.D.cat=cat; S.D.catT=Date.now(); S.D.cols=h; S.D.def={...S.D.def,...def}; S.D.catFecha=new Date().toLocaleDateString('es-CL');
   if(S.mov.length>3000){ S.mov=S.mov.filter((m,i)=>!m.exp||i>=S.mov.length-3000); saveMov() }
   let linked=0; buildIndex(); S.scans.forEach(sc=>{ if(!sc.wooId){ const c=IDX.cat.get(sc.isbn); if(c){sc.wooId=c.id; sc.wooPrice=c.p; sc.exp=true; linked++} } }); persist('pm_scans',S.scans);
   persistData(); renderAll();
@@ -1045,7 +1059,7 @@ $('#fileProv').onchange=async e=>{ const f=e.target.files[0]; e.target.value='';
   const old=new Map(S.D.prov.filter(p=>p[0]).map(p=>[p[0],p])); const up=[],down=[]; let nuevos=0;
   prov.forEach(p=>{ if(!p[0]) return; const o=old.get(p[0]); if(!o) nuevos++; else if(o[3]!==p[3]) (p[3]>o[3]?up:down).push(`${p[1]}: ${num(o[3])} → ${num(p[3])} ARS`) });
   const before=new Map(S.D.cat.map(c=>[c.id,catCalc(c)?.final]));
-  S.D.prov=prov; S.D.fecha=(f.name.match(/\d{1,2}[-_.]\d{1,2}([-_.]\d{2,4})?/)||[new Date().toLocaleDateString('es-CL')])[0]; buildIndex(); persistData(); saveCfg();
+  S.D.prov=prov; S.D.provT=Date.now(); S.D.fecha=(f.name.match(/\d{1,2}[-_.]\d{1,2}([-_.]\d{2,4})?/)||[new Date().toLocaleDateString('es-CL')])[0]; buildIndex(); persistData(); saveCfg();
   const afect=S.D.cat.filter(c=>{const r=catCalc(c); return r&&r.final!==before.get(c.id)}).length;
   renderAll();
   $('#shT').textContent='Lista importada: '+prov.length+' productos';
@@ -1059,7 +1073,19 @@ $('#fileBk').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; i
   try{ const b=JSON.parse(await f.text()); if(!b.cfg||!Array.isArray(b.scans)) throw 0;
     S.cfg={...structuredClone(DEF),...b.cfg}; S.scans=b.scans; S.mov=b.mov||[]; persist('pm_cfg',S.cfg); persist('pm_scans',S.scans); saveMov(); renderAll(); toast(`Respaldo restaurado: ${S.scans.length} escaneos, ${S.mov.filter(m=>!m.exp).length} movimientos.`) }
   catch{ toast('Ese archivo no es un respaldo de la app.') } };
-function renderAll(){ $('#onboard').hidden=!!(S.D.cat.length&&S.D.prov.length);
+$('#updOpen').onclick=()=>{ renderUpd(); $('#upd').hidden=false };
+$('#uClose').onclick=()=>$('#upd').hidden=true;
+$('#upd').addEventListener('click',e=>{ if(e.target.id==='upd') $('#upd').hidden=true });
+$('#uProvBtn').onclick=()=>{ $('#upd').hidden=true; $('#fileProv').click() };
+$('#uCatBtn').onclick=()=>{ $('#upd').hidden=true; $('#fileCat').click() };
+const daysSince=t=>t?Math.floor((Date.now()-t)/864e5):null;
+function renderUpd(){
+  const dp=daysSince(S.D.provT), dc=daysSince(S.D.catT), pend=S.mov.filter(m=>!m.exp&&!m.nuevo).length;
+  $('#uProv').textContent=S.D.prov.length?`${S.D.prov.length} productos · lista ${S.D.fecha}${dp!=null?` · subida hace ${dp===0?'menos de un día':dp+' días'}`:''}`:'Aún no subes la lista.';
+  $('#uCat').textContent=S.D.cat.length?`${S.D.cat.length} productos${S.D.catFecha?' · subido el '+S.D.catFecha:''}${pend?` · ${pend} movimientos sin exportar`:''}`:'Aún no subes el catálogo.';
+  $('#updDot').hidden=!(!S.D.prov.length||!S.D.cat.length||(dp!=null&&dp>=7));
+}
+function renderAll(){ renderUpd(); $('#onboard').hidden=!!(S.D.cat.length&&S.D.prov.length);
   $('#obCat').disabled=!!S.D.cat.length; $('#obProv').disabled=!!S.D.prov.length;
   $('#obCat').textContent=(S.D.cat.length?'✓ Catálogo importado':'1 · Importar catálogo WooCommerce (CSV)'); $('#obProv').textContent=(S.D.prov.length?'✓ Lista importada':'2 · Importar lista del proveedor (Excel)'); renderAjustes(); renderHome(); renderList(); $('#srcLbl').textContent='Bodega · lista '+S.D.fecha;
   $('#dCat').textContent=`${S.D.cat.length} productos${S.D.catFecha?' · '+S.D.catFecha:''}`; $('#dProv').textContent=`${S.D.prov.length} productos · ${S.D.fecha}` }
