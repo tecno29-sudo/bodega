@@ -408,6 +408,13 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div class="set" id="termRow"><label for="aTerm">Terminación del tope<small>11.000 ARS → 11.900</small></label><input id="aTerm" data-k="term" type="number"></div>
       </div>
       <div class="group" id="edGroup"></div>
+      <div class="group" id="connGroup"><h4>Conexión con tu tienda</h4>
+        <div class="set" style="grid-template-columns:1fr"><label>Estado<small id="cState">Sin conectar. Las ventas se exportan por CSV.</small></label></div>
+        <div id="cForm" class="set" style="grid-template-columns:1fr;gap:8px"><label for="cCode">Código de conexión<small>En WordPress: WooCommerce → Bodega (app) → Crear llave</small></label>
+          <textarea id="cCode" rows="3" style="font:12px var(--f-mono);border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--paper);color:var(--ink);width:100%" placeholder="bodega:…"></textarea>
+          <button class="btn primary" id="cGo" type="button">Conectar</button></div>
+        <div id="cOn" class="set" style="grid-template-columns:1fr 1fr;gap:8px" hidden><button class="btn primary sm" id="cSync" type="button" style="width:100%">Sincronizar ahora</button><button class="btn ghost sm" id="cOff" type="button" style="width:100%">Desconectar</button></div>
+      </div>
       <div class="group"><h4>Datos</h4>
         <div class="set" style="grid-template-columns:1fr auto"><label>Catálogo WooCommerce<small id="dCat"></small></label><button class="btn ghost sm" id="impCat">Importar CSV</button></div>
         <div class="set" style="grid-template-columns:1fr auto"><label>Lista del proveedor<small id="dProv"></small></label><button class="btn ghost sm" id="impProv">Importar Excel</button></div>
@@ -558,7 +565,7 @@ function persist(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return tr
 function saveCfg(){ clearTimeout(saveT); saveT=setTimeout(()=>persist('pm_cfg',S.cfg),300) }
 async function saveScan(s){ const i=S.scans.findIndex(x=>x.id===s.id); if(i>=0) S.scans[i]=s; else S.scans.unshift(s); persist('pm_scans',S.scans) }
 async function delScan(id){ S.scans=S.scans.filter(x=>x.id!==id); persist('pm_scans',S.scans) }
-const saveMov=()=>persist('pm_mov',S.mov);
+const saveMov=()=>{ persist('pm_mov',S.mov); if(typeof queueSync==='function') queueSync() };
 const pendDelta=id=>S.mov.reduce((a,m)=>a+(m.k===id&&!m.exp?m.d:0),0);
 const stockOf=c=>c.s+pendDelta(c.id);
 const catById=id=>S.D.cat.find(c=>c.id===id);
@@ -706,10 +713,16 @@ function moveStock(isbn,d){
   while(box.children.length>6) box.lastElementChild.remove();
   toast(`${d>0?'+1':'−1'} · ${name} · quedan ${after}`); renderHome(); renderList();
 }
+function undoMove(id){
+  const m=S.mov.find(x=>x.id===id); if(!m) return false;
+  if(m.nuevo){ const sc=S.scans.find(x=>'scan:'+x.id===m.k); if(sc){ sc.stock=Math.max(0,(+sc.stock||0)-m.d); saveScan(sc) } S.mov=S.mov.filter(x=>x.id!==id); saveMov(); return true }
+  if(!m.exp){ S.mov=S.mov.filter(x=>x.id!==id); saveMov(); return true }
+  if(m.sync&&!m.undone){ m.undone=true; S.mov.push({id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),t:Date.now(),k:m.k,isbn:m.isbn,n:m.n,d:-m.d,why:'deshacer',exp:false}); saveMov(); return true }
+  toast('Ese movimiento ya se exportó por CSV y no se puede deshacer aquí.'); return false;
+}
 $('#lastMove').addEventListener('click',e=>{
   const u=e.target.closest('[data-undo]'), n=e.target.closest('[data-new]');
-  if(u){ S.mov=S.mov.filter(m=>m.id!==u.dataset.undo); saveMov(); if(u.dataset.scan){ const sc=S.scans.find(x=>x.id===u.dataset.scan); if(sc){sc.stock=(+sc.stock||0)-(+u.dataset.d); saveScan(sc)} }
-    u.closest('.move').remove(); toast('Movimiento deshecho.') }
+  if(u){ if(undoMove(u.dataset.undo)){ u.closest('.move').remove(); toast('Movimiento deshecho.'); renderHome() } }
   if(n){ $('#mode button[data-m="nuevo"]').click(); stopLive(); lookup(n.dataset.new) }
 });
 function pad(n,w){return String(+n).padStart(w,'0')}
@@ -795,7 +808,7 @@ $('#fDel').addEventListener('click',async()=>{ const s=S.cur; if(!s) return; con
 /* ================= productos ================= */
 const FILTERS={inv:[['stock','Con stock'],['agot','Agotados'],['mov','Con movimientos'],['todos','Todos']],
   esc:[['todos','Todos'],['pend','Sin exportar'],['nuevo','Nuevos'],['existe','Ya en WooCommerce']],
-  hist:[['todos','Todos'],['vend','Ventas'],['lleg','Llegadas'],['pend','Sin exportar']],
+  hist:[['todos','Todos'],['vend','Ventas'],['lleg','Llegadas'],['pend','Pendientes']],
   precios:[['cambio','Por actualizar'],['isbn','ISBN con error'],['bajo','Margen bajo'],['sinlista','Sin lista']]};
 S.view='inv'; S.filter='stock';
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.view=b.dataset.v; S.filter=FILTERS[S.view][0][0]; renderList()});
@@ -826,16 +839,16 @@ function renderList(){
     const enStock=all.filter(x=>x.st>0);
     $('#lSub').textContent=`${enStock.length} títulos con stock · ${enStock.reduce((a,x)=>a+x.st,0)} tomos en total`;
   } else if(S.view==='hist'){
-    const WHY={'llegó':'Llegó','vendido':'Vendí','conteo':'Conteo','ficha':'Cambio en ficha'};
+    const WHY={'llegó':'Llegó','vendido':'Vendí','conteo':'Conteo','ficha':'Cambio en ficha','deshacer':'Deshecho'};
     rows=S.mov.slice().reverse().filter(m=>(f==='todos'||(f==='vend'&&m.d<0)||(f==='lleg'&&m.d>0)||(f==='pend'&&!m.exp&&!m.nuevo))&&hit(m.n,m.isbn));
     let last='';
     html=rows.slice(0,LIM).map(m=>{ const dt=new Date(m.t), day=dt.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'}); let h='';
       if(day!==last){ last=day; const dd=rows.filter(x=>new Date(x.t).toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})===day);
         h=`<div class="grp">${esc(day)} · ${dd.filter(x=>x.d<0).reduce((a,x)=>a-x.d,0)} vendidos · ${dd.filter(x=>x.d>0).reduce((a,x)=>a+x.d,0)} llegados</div>` }
-      const pend=!m.exp&&!m.nuevo;
+      const pend=!m.exp&&!m.nuevo, canUndo=pend||m.nuevo||(m.sync&&!m.undone&&m.why!=='deshacer');
       return h+`<div class="item"><div class="t">${esc(m.n)}</div><div class="stk ${m.d<0?'zero':'ok'}">${m.d>0?'+':''}${m.d}</div>
-      <div class="m">${dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})} · ${WHY[m.why]||(m.d>0?'Llegó':'Vendí')} · ${m.nuevo?'producto nuevo':pend?'<b class="mid">sin exportar</b>':'exportado'}</div>
-      <div style="text-align:right">${pend||m.nuevo?`<button class="btn ghost sm" data-undo-mov="${m.id}">Deshacer</button>`:''}</div></div>` }).join('');
+      <div class="m">${dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})} · ${WHY[m.why]||(m.d>0?'Llegó':'Vendí')} · ${m.nuevo?'producto nuevo':m.rej?'<b class="low">rechazado: '+esc(REJ[m.rej]||m.rej)+'</b>':m.sync?(m.undone?'deshecho':'<span class="ok">en la tienda</span>'):pend?(S.conn?'<b class="mid">en cola</b>':'<b class="mid">sin exportar</b>'):'exportado por CSV'}</div>
+      <div style="text-align:right">${canUndo?`<button class="btn ghost sm" data-undo-mov="${m.id}">Deshacer</button>`:''}</div></div>` }).join('');
     const today=new Date().toDateString(), td=S.mov.filter(m=>new Date(m.t).toDateString()===today);
     $('#lSub').textContent=`Hoy: ${td.filter(m=>m.d<0).reduce((a,m)=>a-m.d,0)} vendidos · ${td.filter(m=>m.d>0).reduce((a,m)=>a+m.d,0)} llegados`;
   } else if(S.view==='esc'){
@@ -858,8 +871,7 @@ function renderList(){
 let armDel={id:null,t:0};
 $('#list').addEventListener('click',async e=>{
   const um=e.target.closest('[data-undo-mov]'); if(um){ const m=S.mov.find(x=>x.id===um.dataset.undoMov); if(!m) return;
-    if(m.nuevo){ const sc=S.scans.find(x=>'scan:'+x.id===m.k); if(sc){ sc.stock=Math.max(0,(+sc.stock||0)-m.d); saveScan(sc) } }
-    S.mov=S.mov.filter(x=>x.id!==m.id); saveMov(); toast('Movimiento deshecho: '+m.n); renderList(); renderHome(); return }
+    if(undoMove(m.id)) toast('Movimiento deshecho: '+m.n); renderList(); renderHome(); return }
   const ds=e.target.closest('[data-del-scan]'); if(ds){ e.stopPropagation(); const id=ds.dataset.delScan;
     if(armDel.id!==id||Date.now()-armDel.t>3000){ armDel={id,t:Date.now()}; ds.textContent='¿Seguro?'; setTimeout(()=>{ if(ds.isConnected) ds.textContent='Borrar' },3000); return }
     const sc=S.scans.find(x=>x.id===id); await delScan(id); S.mov=S.mov.filter(m=>m.k!=='scan:'+id); saveMov(); toast('Borrado: '+(sc?sc.tit:'escaneo')+'. No cambia tu inventario de WooCommerce.'); renderList(); renderHome(); return }
@@ -879,7 +891,7 @@ function changeStock(d,why){ const x=findKey(K); if(!x||!d) return; if(x.st+d<0)
   else { S.mov.push({id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),t:Date.now(),k:'scan:'+x.sc.id,isbn:x.isbn,n:x.n,d,why,exp:true,nuevo:true}); saveMov(); x.sc.stock=x.st+d; saveScan(x.sc) }
   openStock(K); renderList(); renderHome() }
 $('#kMas').onclick=()=>changeStock(1,'llegó'); $('#kMenos').onclick=()=>changeStock(-1,'vendido');
-$('#kSetGo').onclick=()=>{ const v=$('#kSet').value; if(v===''){toast('Escribe cuántos tomos contaste.');return} const x=findKey(K); changeStock(Math.max(0,Math.round(+v))-x.st,'conteo') };
+$('#kSetGo').onclick=async()=>{ const v=$('#kSet').value; if(v===''){toast('Escribe cuántos tomos contaste.');return} if(S.conn&&navigator.onLine){ $('#kSetGo').disabled=true; await syncNow(); $('#kSetGo').disabled=false } const x=findKey(K); if(!x) return; changeStock(Math.max(0,Math.round(+v))-x.st,'conteo') };
 $('#kClose').onclick=()=>$('#stk').hidden=true;
 $('#kFicha').onclick=()=>{ const x=findKey(K); $('#stk').hidden=true; if(!x) return;
   if(x.sc){ S.cur=loadCur(x.sc) } else { const prev=S.scans.find(s=>s.wooId===x.c.id); S.cur=prev?loadCur(prev):newScan({isbn:x.c.i,p:IDX.prov.get(x.c.i)||x.c._prov,c:x.c}) }
@@ -1118,13 +1130,87 @@ $('#ocrIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if
   btn.disabled=false;
 };
 
+/* ================= conexión con la tienda (plugin Bodega) ================= */
+S.conn=lsGet('pm_conn');
+const REJ={sin_stock:'sin stock en la tienda',no_existe:'el producto ya no existe',sin_gestion_stock:'el producto no lleva control de stock',datos:'datos inválidos'};
+const apiURL=(path,q='')=>S.conn.u.replace(/\/+$/,'')+'/?rest_route=/bodega/v1'+path+q;
+async function api(path,{method='GET',body,q='',conn=S.conn}={}){
+  const url=conn.u.replace(/\/+$/,'')+'/?rest_route=/bodega/v1'+path+q;
+  const r=await fetch(url,{method,headers:{'X-Bodega-Key':conn.k,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',credentials:'omit'});
+  let j=null; try{ j=await r.json() }catch{}
+  if(!r.ok){ const e=new Error((j&&j.message)||('Error '+r.status)); e.status=r.status; e.code=j&&j.code; throw e }
+  return j;
+}
+function parseCode(t){ t=String(t||'').trim(); if(!t.startsWith('bodega:')) return null; try{ const o=JSON.parse(atob(t.slice(7))); if(o&&/^https:\/\//.test(o.u)&&/^bpm_[a-f0-9]{8}_[a-f0-9]{48}$/.test(o.k)) return {u:o.u,k:o.k} }catch{} return null }
+const queued=()=>S.mov.filter(m=>!m.exp&&!m.nuevo&&typeof m.k==='number');
+const hhmm=t=>new Date(t).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+let syncing=false, syncAgain=false, syncT=null;
+function queueSync(ms=800){ if(!S.conn) return; clearTimeout(syncT); syncT=setTimeout(()=>syncNow(),ms) }
+function showConnState(){
+  const on=!!S.conn; $('#cForm').hidden=on; $('#cOn').hidden=!on;
+  $('#cState').textContent=on?`Conectada a ${S.conn.tienda||S.conn.u} con la llave «${S.conn.llave||'—'}» (${S.conn.rol||'administrador'}). ${S.conn.last?'Última sincronización: '+new Date(S.conn.last).toLocaleString('es-CL'):''} ${queued().length?queued().length+' movimientos en cola.':''}`:'Sin conectar. Las ventas se exportan por CSV.';
+  if(!on){ setSync(navigator.onLine?'ok':'local',navigator.onLine?'Guardado':'Sin conexión'); return }
+  const q=queued().length;
+  if(!navigator.onLine) setSync('local',q?`Sin señal · ${q} en cola`:'Sin señal');
+  else setSync(q?'local':'ok',q?`${q} en cola`:(S.conn.last?'Tienda '+hhmm(S.conn.last):'Conectada'));
+}
+async function syncNow(opts={}){
+  if(!S.conn) return; if(syncing){ syncAgain=true; return }
+  if(!navigator.onLine){ showConnState(); return }
+  syncing=true; setSync('ok','Sincronizando…'); let rejected=0;
+  try{
+    const q=queued();
+    for(let i=0;i<q.length;i+=50){ const part=q.slice(i,i+50);
+      const res=await api('/moves',{method:'POST',body:{moves:part.map(m=>({id:m.id,product_id:m.k,delta:m.d,tipo:m.why||''}))}});
+      const byId=new Map((res.results||[]).map(x=>[x.id,x]));
+      for(const m of part){ const x=byId.get(m.id); if(!x) continue; const c=catById(m.k);
+        m.exp=true; if(x.ok){ m.sync=true } else { m.rej=x.error; rejected++ }
+        if(c&&typeof x.stock==='number') c.s=x.stock; }
+      persist('pm_mov',S.mov);
+    }
+    let page=1,pages=1,added=0; const byId=new Map(S.D.cat.map(c=>[c.id,c]));
+    do{ const r=await api('/products',{q:'&page='+page+'&per_page=200'}); pages=r.pages||1;
+      for(const p of r.products||[]){ let c=byId.get(p.id); const gt=String(p.gtin||'').replace(/\D/g,'');
+        if(!c){ c={id:p.id,n:p.name,i:gt,p:+p.price||0,s:p.stock??0,m:'',c:'',g:'',au:'',ge:'',es:'',fo:'',w:null}; S.D.cat.push(c); byId.set(p.id,c); added++ }
+        else { if(p.stock!=null) c.s=p.stock; if(p.price) c.p=+p.price; if(gt) c.i=gt; if(p.name) c.n=p.name } }
+      page++ } while(page<=pages);
+    S.conn.last=Date.now(); persist('pm_conn',S.conn); buildIndex(); persistData();
+    if(rejected) toast(`${rejected} movimiento${rejected>1?'s':''} rechazado${rejected>1?'s':''} por la tienda. Revisa el Historial.`);
+    else if(opts.manual) toast(`Sincronizado.${added?` ${added} productos nuevos desde la tienda.`:''}`);
+    renderHome(); if($('#s-productos').classList.contains('on')) renderList();
+  }catch(e){
+    if(e.status===401){ toast('La tienda rechazó la llave. Puede estar desactivada: crea una nueva en WordPress.') }
+    else if(e.status===429){ toast('La tienda pidió esperar un minuto. Se reintenta solo.'); queueSync(65000) }
+    else if(opts.manual) toast('No se pudo sincronizar. Revisa tu señal e inténtalo otra vez.');
+    else queueSync(30000);
+  }
+  syncing=false; showConnState();
+  if(syncAgain){ syncAgain=false; queueSync(300) }
+}
+$('#cGo').onclick=async()=>{
+  const c=parseCode($('#cCode').value); if(!c){ toast('Ese código no es válido. Copia el código completo desde WordPress, empieza con "bodega:".'); return }
+  $('#cGo').disabled=true; $('#cGo').textContent='Conectando…';
+  try{ const r=await api('/ping',{conn:c}); S.conn={...c,tienda:r.tienda,llave:r.llave,rol:r.rol,last:0}; persist('pm_conn',S.conn); $('#cCode').value='';
+    toast('Conectada a '+(r.tienda||'tu tienda')+'.'); showConnState(); await syncNow({manual:true}) }
+  catch(e){ toast(e.status===401?'La tienda rechazó la llave. Crea una nueva en WordPress.':e.status===403?'Tu tienda debe usar https.':'No pude conectar. Revisa que el plugin esté activo y que en WordPress la dirección de la app sea https://tecno29-sudo.github.io.') }
+  $('#cGo').disabled=false; $('#cGo').textContent='Conectar';
+};
+$('#cSync').onclick=()=>syncNow({manual:true});
+let offArm=0;
+$('#cOff').onclick=()=>{ if(Date.now()-offArm>3000){ offArm=Date.now(); $('#cOff').textContent='Toca otra vez'; setTimeout(()=>$('#cOff').textContent='Desconectar',3000); return }
+  S.conn=null; try{localStorage.removeItem('pm_conn')}catch{} showConnState(); toast('Desconectada. Los movimientos en cola quedan para exportar por CSV.') };
+$('#sync').style.cursor='pointer'; $('#sync').addEventListener('click',()=>S.conn&&syncNow({manual:true}));
+addEventListener('online',()=>{ showConnState(); queueSync(500) }); addEventListener('offline',showConnState);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') queueSync(500) });
+setInterval(()=>{ if(S.conn&&document.visibilityState==='visible'&&navigator.onLine) syncNow() },120000);
+
 /* ================= arranque ================= */
 (async function start(){
   S.D=lsGet('pm_data');
   if(!S.D) S.D={"fecha": "sin importar", "prov": [], "cat": [], "cols": ["ID", "Tipo", "SKU", "GTIN, UPC, EAN o ISBN", "Nombre", "Publicado", "¿Está destacado?", "Visibilidad en el catálogo", "Descripción corta", "Descripción", "Día en que empieza el precio rebajado", "Día en que termina el precio rebajado", "Estado del impuesto", "Clase de impuesto", "¿Existencias?", "Inventario", "Cantidad de bajo inventario", "¿Permitir reservas de productos agotados?", "¿Vendido individualmente?", "Peso (kg)", "Longitud (cm)", "Anchura (cm)", "Altura (cm)", "¿Permitir valoraciones de clientes?", "Nota de compra", "Precio rebajado", "Precio normal", "Categorías", "Etiquetas", "Clase de envío", "Imágenes", "Límite de descargas", "Días de caducidad de la descarga", "Superior", "Productos agrupados", "Ventas dirigidas", "Ventas cruzadas", "URL externa", "Texto del botón", "Posición", "Marcas"], "def": {"Tipo": "simple", "Publicado": "1", "¿Está destacado?": "0", "Visibilidad en el catálogo": "visible", "Estado del impuesto": "taxable", "¿Permitir reservas de productos agotados?": "0", "¿Vendido individualmente?": "0", "Peso (kg)": "0.3", "Longitud (cm)": "16", "Anchura (cm)": "16", "Altura (cm)": "16", "¿Permitir valoraciones de clientes?": "1"}};
   buildIndex();
   await initStore();
-  renderAll();
+  renderAll(); showConnState(); if(S.conn) queueSync(300);
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>

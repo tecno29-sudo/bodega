@@ -1,5 +1,5 @@
 // Bodega PorcinoMangas: funciona sin conexión.
-const CACHE='bodega-v8';
+const CACHE='bodega-v9';
 const CORE=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];
 const EXT=['https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
@@ -18,6 +18,7 @@ self.addEventListener('activate',e=>e.waitUntil((async()=>{
 self.addEventListener('fetch',e=>{
   const r=e.request; if(r.method!=='GET') return;
   const u=new URL(r.url), same=u.origin===location.origin;
+  if(u.searchParams.has('rest_route')||u.pathname.includes('/wp-json/')) return; // datos de la tienda: nunca desde la caché
   if(same&&(r.mode==='navigate'||u.pathname.endsWith('/index.html'))){
     // red primero: así recibes las versiones nuevas; sin conexión usa la guardada
     e.respondWith(fetch(r).then(res=>{ if(res.ok){const cp=res.clone(); caches.open(CACHE).then(c=>c.put('index.html',cp))} return res })
