@@ -337,6 +337,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
           <button class="btn ghost" id="ocrBtn" type="button">Leer sinopsis con la cámara</button>
           <input type="file" id="ocrIn" accept="image/*" capture="environment" hidden>
           <p class="sub" id="ocrSt" aria-live="polite">Saca la foto derecha, con buena luz y solo la parte del texto.</p>
+          <p class="sub">Al exportar, el título del producto va arriba como título SEO (H2) y la sinopsis debajo.</p>
           <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
         <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div>
 
@@ -889,13 +890,13 @@ function shortDesc(s){
   const rows=[['Género',s.gen],['Autor',s.autor],['Estado',s.est],['Editorial',s.marca],['Formato',s.for],['ISBN',s.isbn],['Número de tomo',s.tomo]].filter(r=>r[1]);
   return '<div class="table-responsive">\\n<table class="product-info">\\n<tbody>\\n'+rows.map(([k,v])=>`<tr>\\n<th>${k}</th>\\n<td data-label="${k}">${esc(v)}</td>\\n</tr>\\n`).join('')+'</tbody>\\n</table>\\n</div>';
 }
-function longDesc(t){return String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('\\n')}
+function longDesc(t,title){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',...ps].filter(Boolean).join('\\n')}
 async function exportNew(){
   const all=S.scans.filter(s=>!s.wooId); let list=all.filter(s=>!s.exp); if(!list.length) list=all;
   const D=S.D.def;
   const rows=list.map(s=>{const r=scanCalc(s), w=s.w||[D['Peso (kg)'],D['Longitud (cm)'],D['Anchura (cm)'],D['Altura (cm)']];
     return {'ID':'','Tipo':'simple','GTIN, UPC, EAN o ISBN':s.isbn,'Nombre':s.tit,'Publicado':D['Publicado'],'¿Está destacado?':D['¿Está destacado?'],'Visibilidad en el catálogo':D['Visibilidad en el catálogo'],
-      'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
+      'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
       '¿Permitir reservas de productos agotados?':D['¿Permitir reservas de productos agotados?'],'¿Vendido individualmente?':D['¿Vendido individualmente?'],
       'Peso (kg)':w[0],'Longitud (cm)':w[1],'Anchura (cm)':w[2],'Altura (cm)':w[3],'¿Permitir valoraciones de clientes?':D['¿Permitir valoraciones de clientes?'],
       'Precio normal':isFinite(r.final)?Math.round(r.final):'','Categorías':s.cats,'Etiquetas':s.tags,'Imágenes':s.img,'Posición':0,'Marcas':s.marca}});
