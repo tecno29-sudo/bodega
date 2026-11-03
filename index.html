@@ -876,13 +876,19 @@ $('#stk').addEventListener('click',e=>{ if(e.target.id==='stk') $('#stk').hidden
 function changedCat(){return S.D.cat.map(c=>({c,r:catCalc(c)})).filter(x=>x.r&&x.r.final!==x.c.p)}
 function renderExport(){
   const nuevos=S.scans.filter(s=>!s.wooId), pendN=nuevos.filter(s=>!s.exp).length, exist=S.scans.filter(s=>s.wooId&&!s.exp), ch=changedCat().length, stN=new Set(S.mov.filter(m=>!m.exp).map(m=>m.k)).size;
-  const show=S.view==='precios'?['price']:S.view==='inv'?['stock','new']:['new','price'];
-  const B={new:`<button class="btn ${pendN?'primary':'ghost'}" id="xNew" ${nuevos.length?'':'disabled'}>Exportar productos nuevos (${pendN} sin exportar)</button>`,
-    stock:`<button class="btn ${stN?'primary':'ghost'}" id="xStock" ${stN?'':'disabled'}>Exportar stock (${stN} productos)</button>`,
-    price:`<button class="btn ghost" id="xPrice" ${ch+exist.length?'':'disabled'}>Exportar precios y stock de existentes (${ch+exist.length})</button>`};
-  $('#exp').innerHTML=`<div class="lbl">Exportar a WooCommerce</div>`+show.map(k=>B[k]).join('')+
-    `<p class="sub">${S.view==='precios'?'Se actualizan por ID: al importar en WooCommerce marca "Actualizar productos existentes".':'Nuevos: se crean al importar. Stock: se actualiza por ID (marca "Actualizar productos existentes").'} Si no ves un escaneo aquí, revisa que lo hayas guardado en la ficha.</p>`;
-  $('#xNew')&&($('#xNew').onclick=()=>exportNew()); $('#xStock')&&($('#xStock').onclick=()=>exportStock()); $('#xPrice')&&($('#xPrice').onclick=()=>exportPrices());
+  const upd=exist.filter(s=>String(s.desc||'').trim()).length, sinDesc=exist.length-upd;
+  const show=S.view==='precios'?['price','internal']:S.view==='inv'?['stock','internal']:['new','upd'];
+  const B={new:`<button class="btn ${pendN?'primary':'ghost'}" id="xNew" ${nuevos.length?'':'disabled'}>Productos nuevos (${pendN} sin exportar)</button>`,
+    upd:`<button class="btn ${upd?'primary':'ghost'}" id="xUpd" ${upd?'':'disabled'}>Productos de tu tienda con descripción (${upd})</button>`,
+    stock:`<button class="btn ${stN?'primary':'ghost'}" id="xStock" ${stN?'':'disabled'}>Stock (${stN} productos)</button>`,
+    price:`<button class="btn ghost" id="xPrice" ${ch+exist.length?'':'disabled'}>Precios y stock de existentes (${ch+exist.length})</button>`,
+    internal:`<button class="btn ghost" id="xInt">Planilla interna de costos y márgenes</button>`};
+  const note=S.view==='esc'?`Los archivos para WordPress traen solo las columnas que usa tu tienda, sin costos ni márgenes. Nuevos se crean al importar; los de tu tienda se actualizan por ID (marca "Actualizar productos existentes").${sinDesc?` ${sinDesc} de tu tienda aún no tienen sinopsis y no van en el archivo.`:''}`
+    :S.view==='inv'?'Stock: se actualiza por ID en WordPress. La planilla interna es solo para ti, no la subas a la tienda.'
+    :'Precios: se actualizan por ID. La planilla interna es solo para ti, no la subas a la tienda.';
+  $('#exp').innerHTML=`<div class="lbl">Exportar</div>`+show.map(k=>B[k]).join('')+`<p class="sub">${note}</p>`;
+  $('#xNew')&&($('#xNew').onclick=()=>exportNew()); $('#xUpd')&&($('#xUpd').onclick=()=>exportUpdate()); $('#xStock')&&($('#xStock').onclick=()=>exportStock());
+  $('#xPrice')&&($('#xPrice').onclick=()=>exportPrices()); $('#xInt')&&($('#xInt').onclick=()=>exportInternal());
 }
 const csvCell=v=>{v=v==null?'':String(v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
 const toCsv=(cols,rows)=>'\ufeff'+[cols.map(csvCell).join(','),...rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))].join('\r\n');
@@ -891,6 +897,8 @@ function shortDesc(s){
   return '<div class="table-responsive">\\n<table class="product-info">\\n<tbody>\\n'+rows.map(([k,v])=>`<tr>\\n<th>${k}</th>\\n<td data-label="${k}">${esc(v)}</td>\\n</tr>\\n`).join('')+'</tbody>\\n</table>\\n</div>';
 }
 function longDesc(t,title){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',...ps].filter(Boolean).join('\\n')}
+const WP_NEW=['Tipo','GTIN, UPC, EAN o ISBN','Nombre','Publicado','¿Está destacado?','Visibilidad en el catálogo','Descripción corta','Descripción','Estado del impuesto','¿Existencias?','Inventario','¿Permitir reservas de productos agotados?','¿Vendido individualmente?','Peso (kg)','Longitud (cm)','Anchura (cm)','Altura (cm)','¿Permitir valoraciones de clientes?','Precio normal','Categorías','Etiquetas','Imágenes','Marcas'];
+const WP_UPD=['ID','Nombre','Descripción corta','Descripción','Precio normal','¿Existencias?','Inventario'];
 async function exportNew(){
   const all=S.scans.filter(s=>!s.wooId); let list=all.filter(s=>!s.exp); if(!list.length) list=all;
   const D=S.D.def;
@@ -900,8 +908,22 @@ async function exportNew(){
       '¿Permitir reservas de productos agotados?':D['¿Permitir reservas de productos agotados?'],'¿Vendido individualmente?':D['¿Vendido individualmente?'],
       'Peso (kg)':w[0],'Longitud (cm)':w[1],'Anchura (cm)':w[2],'Altura (cm)':w[3],'¿Permitir valoraciones de clientes?':D['¿Permitir valoraciones de clientes?'],
       'Precio normal':isFinite(r.final)?Math.round(r.final):'','Categorías':s.cats,'Etiquetas':s.tags,'Imágenes':s.img,'Posición':0,'Marcas':s.marca}});
-  const ok=await deliver('woocommerce_nuevos_'+stamp()+'.csv',toCsv(S.D.cols,rows),`${rows.length} productos nuevos`);
+  const ok=await deliver('wordpress_nuevos_'+stamp()+'.csv',toCsv(WP_NEW.filter(c=>c!=='Imágenes'||rows.some(r=>r['Imágenes'])),rows),`${rows.length} productos nuevos`);
   if(ok){ for(const s of list){ s.exp=true; await saveScan(s) } renderList() }
+}
+async function exportUpdate(){
+  const list=S.scans.filter(s=>s.wooId&&!s.exp&&String(s.desc||'').trim());
+  const rows=list.map(s=>{const r=scanCalc(s), c=catById(s.wooId), st=Math.max(0,c?stockOf(c):+s.stock||0);
+    return{'ID':s.wooId,'Nombre':s.tit,'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit),'Precio normal':isFinite(r.final)?Math.round(r.final):(c?c.p:s.wooPrice||''),'¿Existencias?':st>0?1:0,'Inventario':st}});
+  const ok=await deliver('wordpress_actualizar_'+stamp()+'.csv',toCsv(WP_UPD,rows),`${rows.length} productos con descripción`);
+  if(ok){ for(const s of list){ s.exp=true; await saveScan(s); const c=catById(s.wooId); if(c){ c.s=Math.max(0,stockOf(c)); S.mov.forEach(m=>{ if(m.k===c.id) m.exp=true }) } } saveMov(); persistData(); renderList() }
+}
+async function exportInternal(){
+  const cols=['ID','ISBN','Producto','Editorial','Stock','Precio proveedor ARS','Descuento %','Costo total CLP','Precio final CLP','Precio actual tienda CLP','Regla','Ganancia CLP','Margen %'];
+  const rows=invItems().map(x=>{ const ed=x.c?(x.c._prov?x.c._prov[2]:''):x.sc.ed, ars=x.c?(x.c._prov?x.c._prov[3]:0):x.sc.provArs, r=x.c?catCalc(x.c):scanCalc(x.sc);
+    return{'ID':x.c?x.c.id:'','ISBN':x.isbn,'Producto':x.n,'Editorial':ed,'Stock':x.st,'Precio proveedor ARS':ars||'','Descuento %':r?Math.round(r.dto*1000)/10:'','Costo total CLP':r&&isFinite(r.cost)?Math.round(r.cost):'',
+      'Precio final CLP':r&&isFinite(r.final)?Math.round(r.final):'','Precio actual tienda CLP':x.c?x.c.p:'','Regla':r?r.rule:'Sin precio de proveedor','Ganancia CLP':r&&isFinite(r.gan)?Math.round(r.gan):'','Margen %':r&&isFinite(r.mg)?Math.round(r.mg*1000)/10:''} });
+  await deliver('interno_costos_'+stamp()+'.csv',toCsv(cols,rows),`${rows.length} productos con costos y márgenes`);
 }
 async function exportPrices(){
   const cols=['ID','Nombre','Precio normal','¿Existencias?','Inventario'];
