@@ -719,7 +719,7 @@ function moveStock(isbn,d){
   const after=before+d;
   box.insertAdjacentHTML('afterbegin',`<div class="move ${d>0?'mas':'menos'}" data-mid="${m.id}"><div><div class="t">${esc(name)}</div><div class="m">${d>0?'Llegó +1':'Vendido −1'} · stock ${before} → ${after}</div></div><div style="display:flex;gap:8px;align-items:center"><span class="st ${after>0?'':'low'}">${after}</span><button class="btn ghost sm" data-undo="${m.id}" data-scan="${c?'':sc.id}" data-d="${d}">Deshacer</button></div></div>`);
   while(box.children.length>6) box.lastElementChild.remove();
-  toast(`${d>0?'+1':'−1'} · ${name} · quedan ${after}`); renderHome(); renderList();
+  toast(`${d>0?'+1':'−1'} · ${name} · quedan ${after}${c&&!S.conn?' · solo en el teléfono (tienda sin conectar)':''}`); renderHome(); renderList();
 }
 function undoMove(id){
   const m=S.mov.find(x=>x.id===id); if(!m) return false;
@@ -1155,7 +1155,7 @@ let syncing=false, syncAgain=false, syncT=null;
 function queueSync(ms=800){ if(!S.conn) return; clearTimeout(syncT); syncT=setTimeout(()=>syncNow(),ms) }
 function showConnState(){
   const on=!!S.conn; $('#cForm').hidden=on; $('#cOn').hidden=!on;
-  $('#cState').textContent=on?`Conectada a ${S.conn.tienda||S.conn.u} con la llave «${S.conn.llave||'—'}» (${S.conn.rol||'administrador'}). ${S.conn.last?'Última sincronización: '+new Date(S.conn.last).toLocaleString('es-CL'):''} ${queued().length?queued().length+' movimientos en cola.':''}`:'Sin conectar. Las ventas se exportan por CSV.';
+  $('#cState').textContent=on?`Conectada a ${S.conn.tienda||S.conn.u} con la llave «${S.conn.llave||'—'}» (${S.conn.rol||'administrador'}). ${S.conn.last?'Última sincronización: '+new Date(S.conn.last).toLocaleString('es-CL'):''} ${queued().length?queued().length+' movimientos en cola.':''}${S.conn.err?' Último error ('+hhmm(S.conn.err.t)+'): '+S.conn.err.msg:''}`:'Sin conectar. Las ventas NO se envían a la tienda: se exportan por CSV.';
   if(!on){ setSync(navigator.onLine?'ok':'local',navigator.onLine?'Guardado':'Sin conexión'); return }
   const q=queued().length;
   if(!navigator.onLine) setSync('local',q?`Sin señal · ${q} en cola`:'Sin señal');
@@ -1185,10 +1185,13 @@ async function syncNow(opts={}){
     if(rejected) toast(`${rejected} movimiento${rejected>1?'s':''} rechazado${rejected>1?'s':''} por la tienda. Revisa el Historial.`);
     else if(opts.manual) toast(`Sincronizado.${added?` ${added} productos nuevos desde la tienda.`:''}`);
     renderHome(); if($('#s-productos').classList.contains('on')) renderList();
+    S.conn.err=null; persist('pm_conn',S.conn);
   }catch(e){
+    const why=e.status===401?'La tienda rechazó la llave (puede estar desactivada).':e.status===403?'La tienda pide https o bloqueó la conexión.':e.status===404?'No encontré el plugin en la tienda: revisa que esté instalado y activo.':e.status===429?'La tienda pidió esperar un minuto.':e.status?('La tienda respondió con error '+e.status+'.'):'No se pudo llegar a la tienda. Puede ser la señal, la "Dirección de la app" en el plugin, o un plugin de seguridad o caché que bloquea la conexión.';
+    if(S.conn){ S.conn.err={t:Date.now(),msg:why}; persist('pm_conn',S.conn) }
     if(e.status===401){ toast('La tienda rechazó la llave. Puede estar desactivada: crea una nueva en WordPress.') }
     else if(e.status===429){ toast('La tienda pidió esperar un minuto. Se reintenta solo.'); queueSync(65000) }
-    else if(opts.manual) toast('No se pudo sincronizar. Revisa tu señal e inténtalo otra vez.');
+    else if(opts.manual) toast('No se pudo sincronizar: '+why);
     else queueSync(30000);
   }
   syncing=false; showConnState();
