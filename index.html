@@ -341,10 +341,14 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div class="field"><label for="fCat">Categorías <span class="tag auto" id="tgCat">auto</span></label><textarea id="fCat" style="min-height:64px"></textarea></div>
         <div class="field"><label for="fTags">Etiquetas</label><input id="fTags"></div>
         <div class="field"><label for="fDesc">Descripción (sinopsis de la contratapa)</label>
-          <button class="btn ghost" id="ocrBtn" type="button">Leer sinopsis con la cámara</button>
+          <button class="btn primary" id="aiBtn" type="button">Leer con IA (foto)</button>
+          <input type="file" id="aiIn" accept="image/*" capture="environment" hidden>
+          <div class="two"><button class="btn ghost sm" id="pasteBtn" type="button" style="width:100%">Pegar texto (Lens)</button><button class="btn ghost sm" id="aiTxtBtn" type="button" style="width:100%">Ordenar con IA</button></div>
+          <button class="btn ghost sm" id="ocrBtn" type="button" style="width:100%">Lector gratis sin internet</button>
           <input type="file" id="ocrIn" accept="image/*" capture="environment" hidden>
-          <p class="sub" id="ocrSt" aria-live="polite">Saca la foto derecha, con buena luz y solo la parte del texto.</p>
-          <p class="sub">Al exportar, el título del producto va arriba como título SEO (H2) y la sinopsis debajo.</p>
+          <p class="sub" id="ocrSt" aria-live="polite">La IA separa el título de la sinopsis, la transcribe completa y corrige errores de lectura, sin inventar. Si pegas texto de Lens, toca "Ordenar con IA" para limpiarlo.</p>
+          <p class="sub">Al exportar: el título del producto va como H2, el título de la sinopsis como H3 y luego la sinopsis.</p>
+          <label for="fSubt" style="font-size:12px;color:var(--muted);font-weight:700">Título de la sinopsis (opcional)</label><input id="fSubt" placeholder="Frase o título que trae la contratapa">
           <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
         <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div>
 
@@ -761,7 +765,7 @@ function autoCats(s){
 }
 
 /* ================= ficha ================= */
-const FMAP={fTit:'tit',fIsbn:'isbn',fStock:'stock',fSerie:'serie',fTomo:'tomo',fAutor:'autor',fGen:'gen',fEst:'est',fFor:'for',fMarca:'marca',fEd:'ed',fCat:'cats',fTags:'tags',fDesc:'desc',fImg:'img'};
+const FMAP={fTit:'tit',fIsbn:'isbn',fStock:'stock',fSerie:'serie',fTomo:'tomo',fAutor:'autor',fGen:'gen',fEst:'est',fFor:'for',fMarca:'marca',fEd:'ed',fCat:'cats',fTags:'tags',fDesc:'desc',fSubt:'subt',fImg:'img'};
 const OMAP={oArs:'ars',oClp:'clp',oDto:'dto',oEnv:'env',oMan:'man'};
 function fillEdSelect(){$('#fEd').innerHTML=S.cfg.eds.map(e=>`<option>${esc(e.n)}</option>`).join('')}
 function renderFicha(){
@@ -930,7 +934,7 @@ function shortDesc(s){
   const rows=[['Género',s.gen],['Autor',s.autor],['Estado',s.est],['Editorial',s.marca],['Formato',s.for],['ISBN',s.isbn],['Número de tomo',s.tomo]].filter(r=>r[1]);
   return '<div class="table-responsive">\\n<table class="product-info">\\n<tbody>\\n'+rows.map(([k,v])=>`<tr>\\n<th>${k}</th>\\n<td data-label="${k}">${esc(v)}</td>\\n</tr>\\n`).join('')+'</tbody>\\n</table>\\n</div>';
 }
-function longDesc(t,title){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',...ps].filter(Boolean).join('\\n')}
+function longDesc(t,title,subt){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',subt&&String(subt).trim()?`<h3>${esc(String(subt).trim())}</h3>`:'',...ps].filter(Boolean).join('\\n')}
 const WP_NEW=['Tipo','GTIN, UPC, EAN o ISBN','Nombre','Publicado','¿Está destacado?','Visibilidad en el catálogo','Descripción corta','Descripción','Estado del impuesto','¿Existencias?','Inventario','¿Permitir reservas de productos agotados?','¿Vendido individualmente?','Peso (kg)','Longitud (cm)','Anchura (cm)','Altura (cm)','¿Permitir valoraciones de clientes?','Precio normal','Categorías','Etiquetas','Imágenes','Marcas'];
 const WP_UPD=['ID','Nombre','Descripción corta','Descripción','Precio normal','¿Existencias?','Inventario'];
 async function exportNew(){
@@ -938,7 +942,7 @@ async function exportNew(){
   const D=S.D.def;
   const rows=list.map(s=>{const r=scanCalc(s), w=s.w||[D['Peso (kg)'],D['Longitud (cm)'],D['Anchura (cm)'],D['Altura (cm)']];
     return {'ID':'','Tipo':'simple','GTIN, UPC, EAN o ISBN':s.isbn,'Nombre':s.tit,'Publicado':D['Publicado'],'¿Está destacado?':D['¿Está destacado?'],'Visibilidad en el catálogo':D['Visibilidad en el catálogo'],
-      'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
+      'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit,s.subt),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
       '¿Permitir reservas de productos agotados?':D['¿Permitir reservas de productos agotados?'],'¿Vendido individualmente?':D['¿Vendido individualmente?'],
       'Peso (kg)':w[0],'Longitud (cm)':w[1],'Anchura (cm)':w[2],'Altura (cm)':w[3],'¿Permitir valoraciones de clientes?':D['¿Permitir valoraciones de clientes?'],
       'Precio normal':isFinite(r.final)?Math.round(r.final):'','Categorías':s.cats,'Etiquetas':s.tags,'Imágenes':s.img,'Posición':0,'Marcas':s.marca}});
@@ -948,7 +952,7 @@ async function exportNew(){
 async function exportUpdate(){
   const list=S.scans.filter(s=>s.wooId&&!s.exp&&String(s.desc||'').trim());
   const rows=list.map(s=>{const r=scanCalc(s), c=catById(s.wooId), st=Math.max(0,c?stockOf(c):+s.stock||0);
-    return{'ID':s.wooId,'Nombre':s.tit,'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit),'Precio normal':isFinite(r.final)?Math.round(r.final):(c?c.p:s.wooPrice||''),'¿Existencias?':st>0?1:0,'Inventario':st}});
+    return{'ID':s.wooId,'Nombre':s.tit,'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit,s.subt),'Precio normal':isFinite(r.final)?Math.round(r.final):(c?c.p:s.wooPrice||''),'¿Existencias?':st>0?1:0,'Inventario':st}});
   const ok=await deliver('wordpress_actualizar_'+stamp()+'.csv',toCsv(WP_UPD,rows),`${rows.length} productos con descripción`);
   if(ok){ for(const s of list){ s.exp=true; await saveScan(s); const c=catById(s.wooId); if(c){ c.s=Math.max(0,stockOf(c)); S.mov.forEach(m=>{ if(m.k===c.id) m.exp=true }) } } saveMov(); persistData(); renderList() }
 }
@@ -1213,6 +1217,39 @@ $('#sync').style.cursor='pointer'; $('#sync').addEventListener('click',()=>S.con
 addEventListener('online',()=>{ showConnState(); queueSync(500) }); addEventListener('offline',showConnState);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') queueSync(500) });
 setInterval(()=>{ if(S.conn&&document.visibilityState==='visible'&&navigator.onLine) syncNow() },120000);
+
+/* ================= sinopsis con IA y pegado ================= */
+function tidyPasted(t){ // ordena texto copiado con Lens / Texto en vivo
+  const lines=String(t||'').replace(/\r/g,'').split('\n').map(l=>l.trim());
+  const paras=[]; let cur='';
+  for(const l of lines){ if(!l){ if(cur){paras.push(cur);cur=''} continue }
+    if(!cur) cur=l; else if(/[-‐]$/.test(cur)&&/^[a-záéíóúñ]/.test(l)) cur=cur.slice(0,-1)+l; else if(/[.!?…»"]$/.test(cur)&&/^[A-ZÁÉÍÓÚÑ¿¡«"—-]/.test(l)&&cur.length>140){ paras.push(cur); cur=l } else cur+=' '+l }
+  if(cur) paras.push(cur);
+  return paras.map(p=>p.replace(/\s+([,.;:!?»)])/g,'$1').replace(/\s{2,}/g,' ').trim()).join('\n\n');
+}
+function aiReady(){ if(!S.conn){ ocrSt('Para usar la IA, conecta tu tienda en Ajustes → Conexión con tu tienda.'); return false }
+  if(!navigator.onLine){ ocrSt('La IA necesita internet. Sin señal usa "Lector gratis sin internet" o pega el texto.'); return false } return true }
+function applyAI(r){ const s=S.cur; if(!s) return;
+  if(r.sinopsis) s.desc=r.sinopsis; if(r.titulo_sinopsis) s.subt=r.titulo_sinopsis;
+  if(r.serie&&!s.serie){ s.serie=r.serie.toUpperCase(); if(!s.manTit) s.tit=autoTitle(s) }
+  if(r.tomo&&!s.tomo){ s.tomo=pad(r.tomo,2); if(!s.manTit) s.tit=autoTitle(s) }
+  renderFicha();
+  ocrSt(`Listo. Revisa el texto antes de guardar.${r.notas?' Nota de la IA: '+r.notas:''}${r.tope?` (${r.usadas_hoy} de ${r.tope} lecturas hoy)`:''}`);
+}
+async function callAI(body,btn){ btn.disabled=true; ocrSt('La IA está leyendo… (unos segundos)');
+  try{ const r=await api('/leer',{method:'POST',body}); applyAI(r) }
+  catch(e){ ocrSt(e.status===404?'Tu plugin no tiene la lectura con IA: instala la versión 1.1.0 en WordPress.':(e.message||'No se pudo leer. Prueba otra vez.')) }
+  btn.disabled=false }
+$('#aiBtn').onclick=()=>{ if(aiReady()) $('#aiIn').click() };
+$('#aiIn').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f||!S.cur) return;
+  const cv=await toCanvas(f,1600); const b64=cv.toDataURL('image/jpeg',.85).split(',')[1];
+  callAI({image:b64},$('#aiBtn')) };
+$('#aiTxtBtn').onclick=()=>{ const t=$('#fDesc').value.trim(); if(!t){ ocrSt('Primero pega o escribe el texto en el cuadro de la sinopsis.'); return } if(aiReady()) callAI({text:t},$('#aiTxtBtn')) };
+$('#pasteBtn').onclick=async()=>{ if(!S.cur) return;
+  let t=''; try{ t=await navigator.clipboard.readText() }catch{}
+  if(!t){ $('#fDesc').focus(); ocrSt('Mantén presionado el cuadro de la sinopsis y elige "Pegar". Luego toca "Ordenar con IA" o déjalo así.'); return }
+  S.cur.desc=tidyPasted(t); renderFicha(); ocrSt('Texto pegado y ordenado. Si quieres que la IA separe el título y corrija errores, toca "Ordenar con IA".') };
+$('#fDesc').addEventListener('paste',e=>{ const t=(e.clipboardData||window.clipboardData)?.getData('text'); if(!t||!S.cur) return; e.preventDefault(); S.cur.desc=tidyPasted(t); renderFicha(); ocrSt('Texto pegado y ordenado.') });
 
 /* ================= arranque ================= */
 (async function start(){
