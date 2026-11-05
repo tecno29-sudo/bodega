@@ -353,7 +353,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
           <div class="two"><button class="btn ghost sm" id="pasteBtn" type="button" style="width:100%">Pegar texto (Lens)</button><button class="btn ghost sm" id="aiTxtBtn" type="button" style="width:100%">Ordenar con IA</button></div>
           <button class="btn ghost sm" id="ocrBtn" type="button" style="width:100%">Lector gratis sin internet</button>
           <input type="file" id="ocrIn" accept="image/*" capture="environment" hidden>
-          <p class="sub" id="ocrSt" aria-live="polite">La IA separa el título de la sinopsis, la transcribe completa y corrige errores de lectura, sin inventar. Si pegas texto de Lens, toca "Ordenar con IA" para limpiarlo.</p>
+          <p class="sub" id="ocrSt" aria-live="polite">La IA separa el título de la sinopsis, la transcribe completa y corrige errores de lectura, sin inventar. Si viene en otro idioma, la traduce al español. Si pegas texto de Lens, toca "Ordenar con IA" para limpiarlo.</p>
           <p class="sub">Al exportar: el título del producto va como H2, el título de la sinopsis como H3 y luego la sinopsis.</p>
           <label for="fSubt" style="font-size:12px;color:var(--muted);font-weight:700">Título de la sinopsis (opcional)</label><input id="fSubt" placeholder="Frase o título que trae la contratapa">
           <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
@@ -1251,7 +1251,9 @@ function applyAI(r){ const s=S.cur; if(!s) return;
   if(r.serie&&!s.serie){ s.serie=r.serie.toUpperCase(); if(!s.manTit) s.tit=autoTitle(s) }
   if(r.tomo&&!s.tomo){ s.tomo=pad(r.tomo,2); if(!s.manTit) s.tit=autoTitle(s) }
   renderFicha();
-  ocrSt(`Listo. Revisa el texto antes de guardar.${r.notas?' Nota de la IA: '+r.notas:''}${r.tope?` (${r.usadas_hoy} de ${r.tope} lecturas hoy)`:''}`);
+  const LANG={en:'inglés',pt:'portugués',ja:'japonés',fr:'francés',it:'italiano',de:'alemán',ko:'coreano',zh:'chino'};
+  const tr=r.idioma_original&&r.idioma_original!=='es'?` Traducido del ${LANG[r.idioma_original]||r.idioma_original}: revisa que suene natural.`:'';
+  ocrSt(`Listo. Revisa el texto antes de guardar.${tr}${r.notas?' Nota de la IA: '+r.notas:''}${r.tope?` (${r.usadas_hoy} de ${r.tope} lecturas hoy)`:''}`);
 }
 async function callAI(body,btn){ btn.disabled=true; ocrSt('La IA está leyendo… (unos segundos)');
   try{ const r=await api('/leer',{method:'POST',body}); applyAI(r) }
