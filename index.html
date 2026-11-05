@@ -194,6 +194,13 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .big3{display:grid;grid-template-columns:64px 1fr 64px;gap:10px;align-items:center}
 .big3 button{height:64px;border-radius:16px;border:0;font:700 28px var(--f-mono);cursor:pointer}
 .big3 .num{font:600 44px var(--f-mono);text-align:center}
+.pubrow{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;padding:11px 12px;border-top:1px solid var(--line);align-items:start}
+.pubrow:first-child{border-top:0}
+.pubrow input{width:22px;height:22px;margin-top:2px}
+.pubrow .t{font-weight:700;font-size:14px;overflow-wrap:anywhere}
+.pubrow .m{font-size:12px;color:var(--muted)}
+.pubrow .w{font-size:12px;color:var(--warn);font-weight:700}
+.pubrow .r{font-size:12px;font-weight:700}
 .empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}
 .more{font-size:12px;color:var(--muted);text-align:center}
 
@@ -438,6 +445,13 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
       <div class="updRow"><b>Catálogo de WordPress (CSV)</b><span class="m" id="uCat"></span><button class="btn primary" id="uCatBtn" type="button">Subir exportación de WooCommerce</button>
         <span class="m">Antes de subirlo, exporta el stock pendiente para no perder ventas registradas en el teléfono.</span></div>
       <button class="btn ghost" id="uClose" type="button">Cerrar</button>
+    </div></div>
+    <div class="sheet" id="pub" hidden><div class="in">
+      <h3 class="h" style="font-size:20px">Subir a la tienda</h3>
+      <p class="sub" id="pubSub">Revisa la lista y marca lo que quieres subir. Nada se sube hasta que toques Aprobar.</p>
+      <div class="results" id="pubList"></div>
+      <label class="sub" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pubPublish" checked style="width:20px;height:20px"> Publicar los productos nuevos (si lo desmarcas, quedan como borrador)</label>
+      <div class="btnrow"><button class="btn ghost" id="pubClose" type="button">Cerrar</button><button class="btn primary" id="pubGo" type="button">Aprobar y subir</button></div>
     </div></div>
     <div class="sheet" id="stk" hidden><div class="in">
       <h3 class="h" style="font-size:18px" id="kT"></h3>
@@ -915,26 +929,29 @@ function changedCat(){return S.D.cat.map(c=>({c,r:catCalc(c)})).filter(x=>x.r&&x
 function renderExport(){
   const nuevos=S.scans.filter(s=>!s.wooId), pendN=nuevos.filter(s=>!s.exp).length, exist=S.scans.filter(s=>s.wooId&&!s.exp), ch=changedCat().length, stN=new Set(S.mov.filter(m=>!m.exp).map(m=>m.k)).size;
   const upd=exist.filter(s=>String(s.desc||'').trim()).length, sinDesc=exist.length-upd;
-  const show=S.view==='precios'?['price','internal']:S.view==='inv'?['stock','internal']:['new','upd'];
+  const show=S.view==='precios'?['price','internal']:S.view==='inv'?['stock','internal']:(S.conn?['pub','new','upd']:['new','upd']);
+  const pubN=pubCandidates().length;
   const B={new:`<button class="btn ${pendN?'primary':'ghost'}" id="xNew" ${nuevos.length?'':'disabled'}>Productos nuevos (${pendN} sin exportar)</button>`,
     upd:`<button class="btn ${upd?'primary':'ghost'}" id="xUpd" ${upd?'':'disabled'}>Productos de tu tienda con descripción (${upd})</button>`,
     stock:`<button class="btn ${stN?'primary':'ghost'}" id="xStock" ${stN?'':'disabled'}>Stock (${stN} productos)</button>`,
     price:`<button class="btn ghost" id="xPrice" ${ch+exist.length?'':'disabled'}>Precios y stock de existentes (${ch+exist.length})</button>`,
-    internal:`<button class="btn ghost" id="xInt">Planilla interna de costos y márgenes</button>`};
+    internal:`<button class="btn ghost" id="xInt">Planilla interna de costos y márgenes</button>`,
+    pub:`<button class="btn ${pubN?'primary':'ghost'}" id="xPub" ${pubN?'':'disabled'}>Subir a la tienda (${pubN} por revisar)</button>`};
   const note=S.view==='esc'?`Los archivos para WordPress traen solo las columnas que usa tu tienda, sin costos ni márgenes. Nuevos se crean al importar; los de tu tienda se actualizan por ID (marca "Actualizar productos existentes").${sinDesc?` ${sinDesc} de tu tienda aún no tienen sinopsis y no van en el archivo.`:''}`
     :S.view==='inv'?'Stock: se actualiza por ID en WordPress. La planilla interna es solo para ti, no la subas a la tienda.'
     :'Precios: se actualizan por ID. La planilla interna es solo para ti, no la subas a la tienda.';
   $('#exp').innerHTML=`<div class="lbl">Exportar</div>`+show.map(k=>B[k]).join('')+`<p class="sub">${note}</p>`;
   $('#xNew')&&($('#xNew').onclick=()=>exportNew()); $('#xUpd')&&($('#xUpd').onclick=()=>exportUpdate()); $('#xStock')&&($('#xStock').onclick=()=>exportStock());
-  $('#xPrice')&&($('#xPrice').onclick=()=>exportPrices()); $('#xInt')&&($('#xInt').onclick=()=>exportInternal());
+  $('#xPrice')&&($('#xPrice').onclick=()=>exportPrices()); $('#xPub')&&($('#xPub').onclick=()=>openPub()); $('#xInt')&&($('#xInt').onclick=()=>exportInternal());
 }
 const csvCell=v=>{v=v==null?'':String(v); return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
 const toCsv=(cols,rows)=>'\ufeff'+[cols.map(csvCell).join(','),...rows.map(r=>cols.map(c=>csvCell(r[c])).join(','))].join('\r\n');
 function shortDesc(s){
   const rows=[['Género',s.gen],['Autor',s.autor],['Estado',s.est],['Editorial',s.marca],['Formato',s.for],['ISBN',s.isbn],['Número de tomo',s.tomo]].filter(r=>r[1]);
-  return '<div class="table-responsive">\\n<table class="product-info">\\n<tbody>\\n'+rows.map(([k,v])=>`<tr>\\n<th>${k}</th>\\n<td data-label="${k}">${esc(v)}</td>\\n</tr>\\n`).join('')+'</tbody>\\n</table>\\n</div>';
+  return '<div class="table-responsive">\n<table class="product-info">\n<tbody>\n'+rows.map(([k,v])=>`<tr>\n<th>${k}</th>\n<td data-label="${k}">${esc(v)}</td>\n</tr>\n`).join('')+'</tbody>\n</table>\n</div>';
 }
-function longDesc(t,title,subt){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',subt&&String(subt).trim()?`<h3>${esc(String(subt).trim())}</h3>`:'',...ps].filter(Boolean).join('\\n')}
+function longDesc(t,title,subt){const ps=String(t||'').trim().split(/\n\s*\n|\n/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${esc(p)}</p>`); return [title&&String(title).trim()?`<h2>${esc(String(title).trim())}</h2>`:'',subt&&String(subt).trim()?`<h3>${esc(String(subt).trim())}</h3>`:'',...ps].filter(Boolean).join('\n')}
+const csvNL=h=>String(h).replace(/\n/g,'\\n');
 const WP_NEW=['Tipo','GTIN, UPC, EAN o ISBN','Nombre','Publicado','¿Está destacado?','Visibilidad en el catálogo','Descripción corta','Descripción','Estado del impuesto','¿Existencias?','Inventario','¿Permitir reservas de productos agotados?','¿Vendido individualmente?','Peso (kg)','Longitud (cm)','Anchura (cm)','Altura (cm)','¿Permitir valoraciones de clientes?','Precio normal','Categorías','Etiquetas','Imágenes','Marcas'];
 const WP_UPD=['ID','Nombre','Descripción corta','Descripción','Precio normal','¿Existencias?','Inventario'];
 async function exportNew(){
@@ -942,7 +959,7 @@ async function exportNew(){
   const D=S.D.def;
   const rows=list.map(s=>{const r=scanCalc(s), w=s.w||[D['Peso (kg)'],D['Longitud (cm)'],D['Anchura (cm)'],D['Altura (cm)']];
     return {'ID':'','Tipo':'simple','GTIN, UPC, EAN o ISBN':s.isbn,'Nombre':s.tit,'Publicado':D['Publicado'],'¿Está destacado?':D['¿Está destacado?'],'Visibilidad en el catálogo':D['Visibilidad en el catálogo'],
-      'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit,s.subt),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
+      'Descripción corta':csvNL(shortDesc(s)),'Descripción':csvNL(longDesc(s.desc,s.tit,s.subt)),'Estado del impuesto':D['Estado del impuesto'],'¿Existencias?':s.stock>0?1:0,'Inventario':s.stock,
       '¿Permitir reservas de productos agotados?':D['¿Permitir reservas de productos agotados?'],'¿Vendido individualmente?':D['¿Vendido individualmente?'],
       'Peso (kg)':w[0],'Longitud (cm)':w[1],'Anchura (cm)':w[2],'Altura (cm)':w[3],'¿Permitir valoraciones de clientes?':D['¿Permitir valoraciones de clientes?'],
       'Precio normal':isFinite(r.final)?Math.round(r.final):'','Categorías':s.cats,'Etiquetas':s.tags,'Imágenes':s.img,'Posición':0,'Marcas':s.marca}});
@@ -952,7 +969,7 @@ async function exportNew(){
 async function exportUpdate(){
   const list=S.scans.filter(s=>s.wooId&&!s.exp&&String(s.desc||'').trim());
   const rows=list.map(s=>{const r=scanCalc(s), c=catById(s.wooId), st=Math.max(0,c?stockOf(c):+s.stock||0);
-    return{'ID':s.wooId,'Nombre':s.tit,'Descripción corta':shortDesc(s),'Descripción':longDesc(s.desc,s.tit,s.subt),'Precio normal':isFinite(r.final)?Math.round(r.final):(c?c.p:s.wooPrice||''),'¿Existencias?':st>0?1:0,'Inventario':st}});
+    return{'ID':s.wooId,'Nombre':s.tit,'Descripción corta':csvNL(shortDesc(s)),'Descripción':csvNL(longDesc(s.desc,s.tit,s.subt)),'Precio normal':isFinite(r.final)?Math.round(r.final):(c?c.p:s.wooPrice||''),'¿Existencias?':st>0?1:0,'Inventario':st}});
   const ok=await deliver('wordpress_actualizar_'+stamp()+'.csv',toCsv(WP_UPD,rows),`${rows.length} productos con descripción`);
   if(ok){ for(const s of list){ s.exp=true; await saveScan(s); const c=catById(s.wooId); if(c){ c.s=Math.max(0,stockOf(c)); S.mov.forEach(m=>{ if(m.k===c.id) m.exp=true }) } } saveMov(); persistData(); renderList() }
 }
@@ -1250,6 +1267,63 @@ $('#pasteBtn').onclick=async()=>{ if(!S.cur) return;
   if(!t){ $('#fDesc').focus(); ocrSt('Mantén presionado el cuadro de la sinopsis y elige "Pegar". Luego toca "Ordenar con IA" o déjalo así.'); return }
   S.cur.desc=tidyPasted(t); renderFicha(); ocrSt('Texto pegado y ordenado. Si quieres que la IA separe el título y corrija errores, toca "Ordenar con IA".') };
 $('#fDesc').addEventListener('paste',e=>{ const t=(e.clipboardData||window.clipboardData)?.getData('text'); if(!t||!S.cur) return; e.preventDefault(); S.cur.desc=tidyPasted(t); renderFicha(); ocrSt('Texto pegado y ordenado.') });
+
+/* ================= subir a la tienda (con aprobación) ================= */
+function pubCandidates(){ return S.scans.filter(s=>!s.up&&!s.exp) }
+function pubPlan(s){
+  const r=scanCalc(s), price=isFinite(r.final)?Math.round(r.final):null;
+  let id=s.wooId||null; const byIsbn=!id&&s.isbn?IDX.cat.get(s.isbn):null; if(byIsbn) id=byIsbn.id;
+  const c=id?catById(id):null, hasDesc=!!String(s.desc||'').trim(), warn=[]; let block='', mismatch=false;
+  if(!id){ if(price==null) block='Sin precio: pon el precio de compra o el precio final en la ficha.';
+    if(!hasDesc) warn.push('Sin sinopsis: se crea solo con el título.') }
+  else{ if(byIsbn) warn.push(`Ya estaba en tu tienda (ID ${id}): se actualiza, no se crea otro.`);
+    if(!hasDesc) warn.push('Sin sinopsis: se mantiene la descripción que ya tiene la tienda.');
+    if(price==null) warn.push('Sin precio calculado: se mantiene el precio de la tienda.');
+    if(c&&c.i&&s.isbn&&c.i!==s.isbn){ mismatch=true; warn.push(`El ISBN de la tienda (${c.i}) no coincide con el de la ficha (${s.isbn}). Márcalo solo si quieres corregirlo en la tienda.`) } }
+  return {s,id,mode:id?'actualizar':'nuevo',price,warn,block,mismatch,hasDesc};
+}
+let PUB=[];
+function openPub(){
+  if(!S.conn){ toast('Conecta tu tienda en Ajustes para subir productos.'); return }
+  PUB=pubCandidates().map(pubPlan);
+  const nN=PUB.filter(p=>p.mode==='nuevo').length, nU=PUB.length-nN;
+  $('#pubSub').textContent=`${nN} nuevos (se crean sin ID; WooCommerce asigna uno) y ${nU} para actualizar por ID. En los existentes solo cambian nombre, precio y descripciones; el stock sigue por los escaneos.`;
+  $('#pubList').innerHTML=PUB.map((p,i)=>`<div class="pubrow"><input type="checkbox" id="pb${i}" data-i="${i}" ${p.block||p.mismatch?'':'checked'} ${p.block?'disabled':''} aria-label="Subir ${esc(p.s.tit)}">
+    <div><div class="t">${esc(p.s.tit)}</div>
+    <div class="m">${p.mode==='nuevo'?'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>':`<span class="tag man" style="margin:0 6px 0 0">actualizar · ID ${p.id}</span>`}${p.price!=null?fmt(p.price):'precio de la tienda'} · stock ${p.mode==='nuevo'?(+p.s.stock||0):'sin cambios'} · ISBN ${esc(p.s.isbn||'—')}</div>
+    ${p.block?`<div class="r low">${esc(p.block)}</div>`:''}${p.warn.map(w=>`<div class="w">${esc(w)}</div>`).join('')}<div class="r" id="pr${i}"></div></div></div>`).join('')||'<div class="empty">No hay escaneos pendientes. Guarda una ficha para verla aquí.</div>';
+  $('#pubGo').disabled=!PUB.length; $('#pubGo').textContent=`Aprobar y subir (${PUB.filter((p,i)=>!p.block&&!p.mismatch).length})`;
+  $('#pub').hidden=false;
+}
+$('#pubList').addEventListener('change',()=>{ $('#pubGo').textContent=`Aprobar y subir (${$$('#pubList input:checked').length})` });
+$('#pubClose').onclick=()=>{ $('#pub').hidden=true; renderList(); renderHome() };
+$('#pubGo').onclick=async()=>{
+  const sel=$$('#pubList input:checked').map(x=>+x.dataset.i); if(!sel.length){ toast('Marca al menos un producto.'); return }
+  if(!navigator.onLine){ toast('Necesitas internet para subir.'); return }
+  const btn=$('#pubGo'); btn.disabled=true; btn.textContent='Subiendo…'; const pubNew=$('#pubPublish').checked; let ok=0,bad=0;
+  for(let k=0;k<sel.length;k+=20){ const part=sel.slice(k,k+20);
+    const items=part.map(i=>{ const p=PUB[i], s=p.s, D=S.D.def, w=s.w||[D['Peso (kg)'],D['Longitud (cm)'],D['Anchura (cm)'],D['Altura (cm)']];
+      const it={ref:s.id,mode:p.mode,name:s.tit,gtin:s.isbn||'',price:p.price==null?'':p.price};
+      if(p.hasDesc) it.description=longDesc(s.desc,s.tit,s.subt);
+      it.short=shortDesc(s);
+      if(p.mode==='nuevo'){ Object.assign(it,{stock:Math.max(0,+s.stock||0),publish:pubNew,categories:s.cats,tags:s.tags,brand:s.marca,weight:w[0],length:w[1],width:w[2],height:w[3]}) }
+      else { it.id=p.id; if(p.mismatch) it.aceptar_isbn=true }
+      return it });
+    try{ const res=await api('/publish',{method:'POST',body:{items}}); const by=new Map((res.results||[]).map(x=>[x.ref,x]));
+      for(const i of part){ const p=PUB[i], s=p.s, x=by.get(s.id), el=$('#pr'+i); if(!x){ continue }
+        if(x.ok){ ok++; s.up=Date.now(); s.exp=true; s.wooId=x.id;
+          let c=catById(x.id);
+          if(!c){ c={id:x.id,n:s.tit,i:s.isbn||'',p:p.price||0,s:typeof x.stock==='number'?x.stock:(+s.stock||0),m:s.marca||'',c:s.cats||'',g:s.tags||'',au:s.autor||'',ge:s.gen||'',es:s.est||'',fo:s.for||'',w:s.w||null}; S.D.cat.push(c) }
+          else { c.n=s.tit; if(p.price!=null) c.p=p.price; if(p.mismatch) c.i=s.isbn }
+          s.wooPrice=c.p; await saveScan(s);
+          el.className='r ok'; el.textContent=x.accion==='creado'?`✓ Creado con ID ${x.id}${x.estado==='draft'?' (borrador)':''}${x.categorias_nuevas&&x.categorias_nuevas.length?' · categorías nuevas: '+x.categorias_nuevas.join(', '):''}`:x.accion==='ya_creado'?`✓ Ya estaba creado (ID ${x.id})`:`✓ Actualizado (ID ${x.id})`;
+          const cb=$('#pb'+i); cb.checked=false; cb.disabled=true }
+        else { bad++; el.className='r low'; el.textContent='✗ '+x.error; if(x.existe_id){ s.wooId=x.existe_id; await saveScan(s); el.textContent+=' Quedó vinculado a ese ID: revisa la ficha y vuelve a subirlo como actualización.' } } }
+    }catch(e){ bad+=part.length; part.forEach(i=>{ const el=$('#pr'+i); el.className='r low'; el.textContent='✗ '+(e.status===404?'Tu plugin no permite subir productos: instala la versión 1.2.0.':e.message) }) }
+  }
+  buildIndex(); persistData(); btn.disabled=false; btn.textContent=`Aprobar y subir (${$$('#pubList input:checked').length})`;
+  toast(`${ok} subidos${bad?`, ${bad} con error (revisa la lista)`:''}.`);
+};
 
 /* ================= arranque ================= */
 (async function start(){
