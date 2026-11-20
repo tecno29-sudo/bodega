@@ -1,5 +1,5 @@
 // Bodega PorcinoMangas: funciona sin conexión.
-const CACHE='bodega-v15';
+const CACHE='bodega-v16';
 const CORE=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];
 const EXT=['https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',

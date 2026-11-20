@@ -415,7 +415,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     <!-- PRODUCTOS -->
     <section class="screen" id="s-productos" aria-label="Productos">
       <div><h3 class="h">Productos</h3><p class="sub" id="lSub"></p></div>
-      <div class="seg" id="seg"><button data-v="inv" class="on">Inventario</button><button data-v="esc">Escaneados</button><button data-v="hist">Historial</button><button data-v="precios">Precios</button></div>
+      <div class="seg" id="seg" style="grid-template-columns:repeat(5,1fr)"><button data-v="inv" class="on">Inventario</button><button data-v="esc">Escaneados</button><button data-v="hist">Historial</button><button data-v="precios">Precios</button><button data-v="ml">Mercado Libre</button></div>
       <div class="expcard" id="exp"></div>
       <div class="search"><label for="q" hidden>Buscar</label><input id="q" placeholder="Buscar título o ISBN"></div>
       <div class="filters" id="filters"></div>
@@ -920,7 +920,8 @@ $('#fDel').addEventListener('click',async()=>{ const s=S.cur; if(!s) return; con
 const FILTERS={inv:[['stock','Con stock'],['agot','Agotados'],['mov','Con movimientos'],['todos','Todos']],
   esc:[['todos','Todos'],['pend','Sin exportar'],['nuevo','Nuevos'],['existe','Ya en WooCommerce']],
   hist:[['todos','Todos'],['vend','Ventas'],['lleg','Llegadas'],['pend','Pendientes']],
-  precios:[['cambio','Por actualizar'],['isbn','ISBN con error'],['bajo','Margen bajo'],['sinlista','Sin lista']]};
+  precios:[['cambio','Por actualizar'],['isbn','ISBN con error'],['bajo','Margen bajo'],['sinlista','Sin lista']],
+  ml:[['todos','Todos'],['sinprecio','Sin precio ML'],['bajo','Ganancia Flex baja'],['alto','Sobre umbral']]};
 S.view='inv'; S.filter='stock';
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.view=b.dataset.v; S.filter=FILTERS[S.view][0][0]; renderList()});
 $('#filters').addEventListener('click',e=>{const b=e.target.closest('.f'); if(b){S.filter=b.dataset.f; renderList()}});
@@ -962,6 +963,31 @@ function renderList(){
       <div style="text-align:right">${canUndo?`<button class="btn ghost sm" data-undo-mov="${m.id}">Deshacer</button>`:''}</div></div>` }).join('');
     const today=new Date().toDateString(), td=S.mov.filter(m=>new Date(m.t).toDateString()===today);
     $('#lSub').textContent=`Hoy: ${td.filter(m=>m.d<0).reduce((a,m)=>a-m.d,0)} vendidos · ${td.filter(m=>m.d>0).reduce((a,m)=>a+m.d,0)} llegados`;
+  } else if(S.view==='ml'){
+    const all=invItems(); const g=S.cfg.mlGan/100;
+    rows=all.filter(x=>{
+      const cost=x.c?catCalc(x.c)?.cost:scanCalc(x.sc).cost; if(!isFinite(cost)){ x._cost=NaN; x._emb=+S.cfg.mlEmbalaje; x._precio=0; x._sug=0; x._m=null; return f==='todos'||f==='sinprecio'; }
+      const emb=(x.c?S.scans.find(s=>s.wooId===x.c.id)?.mlE:x.sc?.mlE)??+S.cfg.mlEmbalaje;
+      const precio=(x.c?S.scans.find(s=>s.wooId===x.c.id)?.mlP:x.sc?.mlP)||0;
+      x._cost=cost; x._emb=emb; x._precio=precio; x._sug=sugerirML(cost,emb);
+      x._m=precio>0?calcML(cost,precio,emb):null;
+      if(f==='sinprecio') return !precio;
+      if(f==='bajo') return x._m&&x._m.mgFlex<g-.005;
+      if(f==='alto') return precio>=+S.cfg.mlUmbral;
+      return true;
+    }).filter(x=>hit(x.n,x.isbn));
+    html=rows.slice(0,LIM).map(x=>{
+      const m=x._m;
+      const estado=m?`Flex <span class="mono ${m.ganFlex>=0?'ok':'low'}">+${num(m.ganFlex)}</span> · Correo <span class="mono ok">+${num(m.ganCorreo)}</span>`:'Sin precio publicado';
+      const sinC=!isFinite(x._cost);
+      return `<div class="item click" data-k="${x.k}"><div class="t">${esc(x.n)}</div><div class="p">${x._precio?fmt(x._precio):(sinC?'<span class="low">sin costo</span>':'<span class="sub">sug. '+fmt(x._sug)+'</span>')}</div>
+      <div class="m">${sinC?'sin lista del proveedor':'costo '+fmt(x._cost)+' · emb '+fmt(x._emb)}${x._precio>=+S.cfg.mlUmbral?' · <span class="mid">envío gratis</span>':''}</div><div class="mg ${m?(m.mgFlex>=S.cfg.mlGan/100-.005?'ok':m.mgFlex>=0?'mid':'low'):''}">${m?pct(m.mgFlex)+' Flex':''}</div>
+      <div class="m">${estado}</div><div class="mg ${m?'ok':''}"></div></div>`;
+    }).join('');
+    const conPrecio=rows.filter(x=>x._precio);
+    const totalFlex=conPrecio.reduce((a,x)=>a+(x._m?.ganFlex||0),0);
+    const totalCorreo=conPrecio.reduce((a,x)=>a+(x._m?.ganCorreo||0),0);
+    $('#lSub').textContent=`${rows.length} productos · ${conPrecio.length} con precio · ganancia Flex $${num(totalFlex)} · Correo $${num(totalCorreo)}`;
   } else if(S.view==='esc'){
     rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId))&&hit(s.tit,s.isbn));
     html=rows.map(({s,r})=>`<div class="item click" data-id="${s.id}"><div class="t">${esc(s.tit)}</div><div class="p">${fmt(r.final)}</div>
@@ -980,7 +1006,9 @@ function renderList(){
   renderExport();
 }
 let armDel={id:null,t:0};
+let FICHA_CH='';
 $('#list').addEventListener('click',async e=>{
+  if(S.view==='ml'){ const it=e.target.closest('.item.click'); if(it&&it.dataset.k){ FICHA_CH='ml'; openStock(it.dataset.k); $('#kFicha').click(); return } }
   const um=e.target.closest('[data-undo-mov]'); if(um){ const m=S.mov.find(x=>x.id===um.dataset.undoMov); if(!m) return;
     if(undoMove(m.id)) toast('Movimiento deshecho: '+m.n); renderList(); renderHome(); return }
   const ds=e.target.closest('[data-del-scan]'); if(ds){ e.stopPropagation(); const id=ds.dataset.delScan;
@@ -1004,7 +1032,7 @@ function changeStock(d,why){ const x=findKey(K); if(!x||!d) return; if(x.st+d<0)
 $('#kMas').onclick=()=>changeStock(1,'llegó'); $('#kMenos').onclick=()=>changeStock(-1,'vendido');
 $('#kSetGo').onclick=async()=>{ const v=$('#kSet').value; if(v===''){toast('Escribe cuántos tomos contaste.');return} if(S.conn&&navigator.onLine){ $('#kSetGo').disabled=true; await syncNow(); $('#kSetGo').disabled=false } const x=findKey(K); if(!x) return; changeStock(Math.max(0,Math.round(+v))-x.st,'conteo') };
 $('#kClose').onclick=()=>$('#stk').hidden=true;
-$('#kFicha').onclick=()=>{ const x=findKey(K); $('#stk').hidden=true; if(!x) return;
+$('#kFicha').onclick=()=>{ const x=findKey(K); $('#stk').hidden=true; if(!x) return; if(FICHA_CH==='ml'){ CH='ml'; $$('#chTab button').forEach(b=>b.classList.toggle('on',b.dataset.ch==='ml')); $('#chWeb').hidden=true; $('#chML').hidden=false; FICHA_CH=''; }
   if(x.sc){ S.cur=loadCur(x.sc) } else { const prev=S.scans.find(s=>s.wooId===x.c.id); S.cur=prev?loadCur(prev):newScan({isbn:x.c.i,p:IDX.prov.get(x.c.i)||x.c._prov,c:x.c}) }
   go('ficha') };
 $('#stk').addEventListener('click',e=>{ if(e.target.id==='stk') $('#stk').hidden=true });
