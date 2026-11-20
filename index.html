@@ -303,6 +303,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
       <div id="fEmpty" class="empty">Escanea un tomo o abre uno desde Productos para ver su ficha.</div>
       <div id="fBody" hidden style="display:flex;flex-direction:column;gap:14px">
         <div><h3 class="h">Ficha del producto</h3><p class="sub">Revisa y corrige antes de guardar.</p></div>
+        <div class="seg" id="chTab" style="grid-template-columns:1fr 1fr"><button data-ch="web" class="on" type="button">Tu tienda</button><button data-ch="ml" type="button">Mercado Libre</button></div>
         <div id="fBanners" style="display:flex;flex-direction:column;gap:8px"></div>
         <div class="price" aria-live="polite">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
@@ -359,7 +360,32 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
           <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
         <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div>
 
-        <div class="breakdown boxed">
+        <div id="chML" hidden style="display:flex;flex-direction:column;gap:12px">
+          <div class="price">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div><div class="lbl">Precio sugerido (gana <span id="mlGanLbl">30</span>% del costo en el peor caso)</div><div class="final mono" id="mlSug">—</div></div>
+              <button class="btn primary sm" id="mlUsar" type="button">Usar</button>
+            </div>
+            <div style="font-size:12px;opacity:.85" id="mlNota"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label for="mlPrecio">Precio publicado en ML</label><input id="mlPrecio" class="mono" type="number" inputmode="numeric" placeholder="—"></div>
+            <div class="field"><label for="mlEmb">Embalaje de este producto</label><input id="mlEmb" class="mono" type="number" inputmode="numeric" placeholder="600"></div>
+          </div>
+          <div class="boxed" style="padding:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 10px;font-size:13px">
+              <span></span><span style="text-align:right;font-weight:700" class="mid">FLEX</span><span style="text-align:right;font-weight:700" class="ok">CORREO</span>
+              <span class="sub">Comisión ML</span><span class="mono" style="text-align:right" id="mlComF"></span><span class="mono" style="text-align:right" id="mlComC"></span>
+              <span class="sub">Cargo Flex</span><span class="mono" style="text-align:right" id="mlCFF"></span><span class="mono" style="text-align:right" id="mlCFC"></span>
+              <span class="sub">Recargo envío gratis</span><span class="mono" style="text-align:right" id="mlREF"></span><span class="mono" style="text-align:right" id="mlREC"></span>
+              <span class="sub">IVA</span><span class="mono" style="text-align:right" id="mlIVAF"></span><span class="mono" style="text-align:right" id="mlIVAC"></span>
+              <span style="font-weight:700;border-top:1px dashed var(--line);padding-top:6px">Ganancia real</span><span class="mono" style="text-align:right;border-top:1px dashed var(--line);padding-top:6px;font-weight:700" id="mlGanF"></span><span class="mono" style="text-align:right;border-top:1px dashed var(--line);padding-top:6px;font-weight:700" id="mlGanC"></span>
+              <span class="sub">Margen sobre costo</span><span class="mono" style="text-align:right" id="mlMgF"></span><span class="mono" style="text-align:right" id="mlMgC"></span>
+            </div>
+          </div>
+          <p class="sub">Tu tienda y Mercado Libre son canales independientes. Este precio no afecta al de tu tienda ni al stock. En Ajustes → Mercado Libre cambias comisión, cargo Flex, umbral envío gratis, recargo y ganancia deseada.</p>
+        </div>
+        <div id="chWeb" style="display:flex;flex-direction:column;gap:14px"><div class="breakdown boxed">
           <span>Precio lista proveedor</span><span id="bArs"></span>
           <span>Descuento editorial</span><span id="bDto"></span>
           <span>Costo mercadería</span><span id="bMerc"></span>
@@ -381,7 +407,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
             </div>
             <div class="field"><label for="oMan">Precio final a mano (CLP)</label><input id="oMan" class="mono" type="number" inputmode="numeric"></div>
           </div>
-        </details>
+        </details></div>
         <div class="btnrow"><button class="btn ghost" id="fDel">Descartar</button><button class="btn primary" id="fSave">Guardar</button></div>
       </div>
     </section>
@@ -418,6 +444,14 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div class="set"><label for="aUsa">Usar tope del proveedor<small>nunca más caro que el distribuidor</small></label><select id="aUsa" data-k="usarTope"><option value="1">Sí</option><option value="0">No</option></select></div>
         <div class="set"><label for="aModo">Tipo de tope<small id="modoHint"></small></label><select id="aModo" data-k="topeModo"><option value="mil">Mil + terminación</option><option value="1a1">1:1 exacto</option></select></div>
         <div class="set" id="termRow"><label for="aTerm">Terminación del tope<small>11.000 ARS → 11.900</small></label><input id="aTerm" data-k="term" type="number"></div>
+      </div>
+      <div class="group"><h4>Mercado Libre</h4>
+        <div class="set"><label for="aMlGan">Ganancia deseada<small>% sobre el costo</small></label><input id="aMlGan" data-k="mlGan" type="number" step="0.5"></div>
+        <div class="set"><label for="aMlCom">Comisión ML<small>% por venta (clásica)</small></label><input id="aMlCom" data-k="mlCom" type="number" step="0.1"></div>
+        <div class="set"><label for="aMlFlex">Cargo fijo Flex<small>si el precio es menor al umbral</small></label><input id="aMlFlex" data-k="mlFijoFlex" type="number"></div>
+        <div class="set"><label for="aMlUmb">Umbral envío gratis<small>sobre este precio es obligatorio</small></label><input id="aMlUmb" data-k="mlUmbral" type="number"></div>
+        <div class="set"><label for="aMlRec">Recargo envío gratis<small>cuando el precio supera el umbral</small></label><input id="aMlRec" data-k="mlRecargo" type="number"></div>
+        <div class="set"><label for="aMlEmb">Embalaje por defecto<small>valor inicial para cada producto</small></label><input id="aMlEmb" data-k="mlEmbalaje" type="number"></div>
       </div>
       <div class="group" id="edGroup"></div>
       <div class="group" id="connGroup"><h4>Conexión con tu tienda</h4>
@@ -490,12 +524,41 @@ const norm=s=>String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u03
 const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k))}catch{return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 
-const DEF={dolar:1510,usdt:961,env:2000,iva:19,com:1.31,fijo:71,ivaCom:19,n:1,mg:30,red:100,usarTope:1,topeModo:'mil',term:900,
+const DEF={dolar:1510,usdt:961,env:2000,iva:19,com:1.31,fijo:71,ivaCom:19,n:1,mg:30,red:100,usarTope:1,topeModo:'mil',term:900,mlCom:13,mlFijoFlex:1000,mlUmbral:20000,mlRecargo:3000,mlEmbalaje:600,mlGan:30,
   eds:[{n:'Ivrea',d:35,t:1,m:'Ivrea Argentina'},{n:'Panini y Utopía',d:20,t:0,m:'Panini Argentina'},{n:'Planeta',d:35,t:1,m:'Planeta Cómic'},
        {n:'Ovni Press',d:30,t:1,m:''},{n:'Penguin',d:35,t:1,m:''},{n:'Pop Fiction',d:40,t:1,m:''},{n:'Hotel de las Ideas',d:40,t:1,m:''},{n:'V&R',d:35,t:1,m:''},{n:'Otras',d:35,t:1,m:''}]};
 const S={D:null,cfg:structuredClone(DEF),scans:[],db:null,cur:null,view:'esc',filter:'todos',photo:null};
 
 /* ================= cálculo ================= */
+function calcML(cost,precio,emb){
+  const c=S.cfg, iva=c.iva/100, com=c.mlCom/100, umbral=+c.mlUmbral, recargo=+c.mlRecargo, fijoFlex=+c.mlFijoFlex;
+  const comML=precio*com, cargoFlex=precio<umbral?fijoFlex:0, recE=precio>=umbral?recargo:0;
+  const llegaFlex=precio-comML-cargoFlex-recE, llegaCorreo=precio-comML-recE;
+  const ivaFlex=llegaFlex/(1+iva)*iva, ivaCorreo=llegaCorreo/(1+iva)*iva;
+  const ganFlex=llegaFlex/(1+iva)-(cost+emb), ganCorreo=llegaCorreo/(1+iva)-(cost+emb);
+  const mgFlex=cost?ganFlex/cost:0, mgCorreo=cost?ganCorreo/cost:0;
+  return{comML,cargoFlex,recE,llegaFlex,llegaCorreo,ivaFlex,ivaCorreo,ganFlex,ganCorreo,mgFlex,mgCorreo};
+}
+// Precio sugerido para ganar X% del costo en el peor caso (Flex)
+function sugerirML(cost,emb){
+  const c=S.cfg, iva=c.iva/100, com=c.mlCom/100, umbral=+c.mlUmbral, recargo=+c.mlRecargo, fijoFlex=+c.mlFijoFlex, meta=c.mlGan/100;
+  // Caso A: precio < umbral → Flex paga $fijoFlex, sin recargo
+  //  precio = ((cost+emb)*(1+meta))*(1+iva)/(1-com) + fijoFlex*(1+iva)/(1-com)
+  // Quiero ganFlex = meta*cost. Despejando el precio:
+  //   precio = ((cost*meta + cost + emb)*(1+iva) + cargo) / (1-com)
+  // (el IVA solo se aplica sobre lo que llega, no sobre los cargos)
+  const denom=1-com, base=(cost*meta+cost+emb)*(1+iva);
+  const pA=denom>0?(base+fijoFlex)/denom:Infinity;
+  // Caso B: precio >= umbral → sin cargo fijo, con recargo
+  const pB=denom>0?(base+recargo)/denom:Infinity;
+  // Elegir el que caiga en su rango
+  let p;
+  if(pA<umbral&&pB>=umbral) p=Math.min(pA,pB);
+  else if(pA<umbral) p=pA;
+  else if(pB>=umbral) p=pB;
+  else p=pB; // por si ambos están al lado del umbral
+  return Math.ceil(p/100)*100;
+}
 function edOf(name){return S.cfg.eds.find(e=>e.n===name)||S.cfg.eds.find(e=>e.n==='Otras')||{n:name,d:0,t:1,m:''}}
 function roundUp(x,mode){
   if(!isFinite(x)) return Infinity;
@@ -782,6 +845,11 @@ function autoCats(s){
 const FMAP={fTit:'tit',fIsbn:'isbn',fStock:'stock',fSerie:'serie',fTomo:'tomo',fAutor:'autor',fGen:'gen',fEst:'est',fFor:'for',fMarca:'marca',fEd:'ed',fCat:'cats',fTags:'tags',fDesc:'desc',fSubt:'subt',fImg:'img'};
 const OMAP={oArs:'ars',oClp:'clp',oDto:'dto',oEnv:'env',oMan:'man'};
 function fillEdSelect(){$('#fEd').innerHTML=S.cfg.eds.map(e=>`<option>${esc(e.n)}</option>`).join('')}
+let CH='web';
+$('#chTab').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;CH=b.dataset.ch;$$('#chTab button').forEach(x=>x.classList.toggle('on',x===b));$('#chWeb').hidden=CH!=='web';$('#chML').hidden=CH!=='ml';renderFicha()});
+$('#mlPrecio').addEventListener('input',e=>{if(!S.cur)return;S.cur.mlP=+e.target.value||0;renderFicha()});
+$('#mlEmb').addEventListener('input',e=>{if(!S.cur)return;S.cur.mlE=e.target.value===''?null:+e.target.value;renderFicha()});
+$('#mlUsar').addEventListener('click',()=>{if(!S.cur)return;const r=calc(S.cur.provArs,S.cur.ed,S.cur.ov);const emb=S.cur.mlE??+S.cfg.mlEmbalaje;S.cur.mlP=sugerirML(r.cost,emb);renderFicha()});
 function renderFicha(){
   if(S.cur) $('#fDel').textContent=S.scans.some(x=>x.id===S.cur.id)?'Borrar':'Descartar';
   const s=S.cur; $('#fEmpty').hidden=!!s; $('#fBody').hidden=!s; if(!s) return;
@@ -809,6 +877,23 @@ function renderFicha(){
   const f=$('#mFill'); f.style.width=Math.max(0,Math.min(100,(r.mg||0)/0.5*100))+'%';
   f.style.background=r.mg>=c.mg/100-0.005?'var(--good)':r.mg>=0.15?'var(--warn)':'var(--bad)';
   $('#mGoal').style.left=Math.min(100,c.mg/0.5*100)+'%';
+  // Mercado Libre
+  const embML=s.mlE??+S.cfg.mlEmbalaje;
+  if(document.activeElement!==$('#mlPrecio')) $('#mlPrecio').value=s.mlP||'';
+  if(document.activeElement!==$('#mlEmb')) $('#mlEmb').value=s.mlE??'';
+  $('#mlGanLbl').textContent=Math.round(S.cfg.mlGan);
+  const sug=sugerirML(r.cost,embML);
+  $('#mlSug').textContent=fmt(sug);
+  const precio=s.mlP||sug, m=calcML(r.cost,precio,embML);
+  const neg=n=>'−'+num(n);
+  $('#mlComF').textContent=neg(m.comML); $('#mlComC').textContent=neg(m.comML);
+  $('#mlCFF').textContent=neg(m.cargoFlex); $('#mlCFC').textContent=num(0);
+  $('#mlREF').textContent=neg(m.recE); $('#mlREC').textContent=neg(m.recE);
+  $('#mlIVAF').textContent=neg(m.ivaFlex); $('#mlIVAC').textContent=neg(m.ivaCorreo);
+  $('#mlGanF').textContent=num(m.ganFlex); $('#mlGanC').textContent=num(m.ganCorreo);
+  $('#mlGanF').className='mono '+(m.ganFlex>=0?'ok':'low'); $('#mlGanC').className='mono '+(m.ganCorreo>=0?'ok':'low');
+  $('#mlMgF').textContent=pct(m.mgFlex); $('#mlMgC').textContent=pct(m.mgCorreo);
+  $('#mlNota').textContent=precio>=S.cfg.mlUmbral?'Este precio pasa el umbral: envío gratis obligatorio, se descuenta el recargo.':'Este precio es bajo el umbral: si vendes por Flex, pagas el cargo fijo.';
   $('#pNote').textContent=!isFinite(r.cost)?'Falta el precio de compra.':r.manual?'Precio puesto a mano.':r.rule==='Tope proveedor'?`Para el ${c.mg}% tendría que venderse a ${fmt(r.p30)}. Queda en el tope del proveedor.`:r.conTope?`Precio para tu margen objetivo, bajo el tope (${fmt(r.tope)}).`:`Sin tope: siempre al ${c.mg}%.`;
 }
 Object.entries(FMAP).forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{ const s=S.cur; if(!s) return;
