@@ -1043,7 +1043,9 @@ function renderList(){
     $('#lSub').textContent=`${rows.length} productos · ${conPrecio.length} con precio · ganancia Flex $${num(totalFlex)} · Correo $${num(totalCorreo)}`;
   } else if(S.view==='esc'){
     rows=S.scans.map(s=>({s,r:scanCalc(s)})).filter(({s,r})=>(f==='todos'||(f==='pend'&&!s.exp)||(f==='nuevo'&&!s.wooId)||(f==='existe'&&s.wooId))&&hit(s.tit,s.isbn));
-    html=rows.map(({s,r})=>`<div class="item click" data-id="${s.id}"><div class="t">${esc(s.tit)}</div><div class="p">${fmt(r.final)}</div>
+    const nExp=S.scans.filter(s=>s.exp).length;
+    const header=S.scans.length?`<div class="grp" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>Son escaneos guardados en el teléfono. Borrar aquí no toca tu tienda.</span><span style="display:flex;gap:6px">${nExp?`<button class="btn ghost sm" id="limpiarExp" type="button">Limpiar exportados (${nExp})</button>`:''}<button class="btn danger sm" id="limpiarTodos" type="button">Borrar todos (${S.scans.length})</button></span></div>`:'';
+    html=header+rows.map(({s,r})=>`<div class="item click" data-id="${s.id}"><div class="t">${esc(s.tit)}</div><div class="p">${fmt(r.final)}</div>
       <div class="m">${s.wooId?'<span class="tag man" style="margin:0 6px 0 0">existe</span>':'<span class="tag ok" style="margin:0 6px 0 0">nuevo</span>'}${s.exp?'exportado · ':'<b class="mid">sin exportar</b> · '}stock ${s.wooId&&catById(s.wooId)?stockOf(catById(s.wooId)):s.stock}</div><div class="mg ${mgCls(r.mg)}">${pct(r.mg)}</div>
       <div class="m">${esc(r.rule)}${s.desc?'':' · <span class="low">sin sinopsis</span>'}</div><div style="text-align:right"><button class="btn danger sm" data-del-scan="${s.id}">Borrar</button></div></div>`).join('');
     $('#lSub').textContent=`${S.scans.length} escaneados · ${S.scans.filter(s=>!s.exp).length} sin exportar`;
@@ -1058,9 +1060,19 @@ function renderList(){
   $('#more').textContent=rows.length>LIM?`Mostrando ${LIM} de ${rows.length}. Usa la búsqueda para encontrar uno.`:'';
   renderExport();
 }
-let armDel={id:null,t:0};
+let armDel={id:null,t:0}, armClear={k:null,t:0};
 let FICHA_CH='';
+async function clearScans(onlyExp){
+  const antes=S.scans.length;
+  for(const s of S.scans.slice()){ if(!onlyExp||s.exp){ await delScan(s.id); S.mov=S.mov.filter(m=>m.k!=='scan:'+s.id); } }
+  saveMov();
+  const n=antes-S.scans.length;
+  toast(`${n} escaneo${n===1?'':'s'} limpiado${n===1?'':'s'} del teléfono. Tu tienda no se tocó.`);
+  renderList(); renderHome();
+}
 $('#list').addEventListener('click',async e=>{
+  const le=e.target.closest('#limpiarExp'); if(le){ e.stopPropagation(); if(armClear.k!=='exp'||Date.now()-armClear.t>3000){ armClear={k:'exp',t:Date.now()}; le.textContent='Toca otra vez para confirmar'; setTimeout(()=>{if(le.isConnected)le.textContent=`Limpiar exportados (${S.scans.filter(s=>s.exp).length})`},3000); return } await clearScans(true); return }
+  const lt=e.target.closest('#limpiarTodos'); if(lt){ e.stopPropagation(); if(armClear.k!=='todos'||Date.now()-armClear.t>3000){ armClear={k:'todos',t:Date.now()}; lt.textContent='¿Borrar TODOS? Toca otra vez'; setTimeout(()=>{if(lt.isConnected)lt.textContent=`Borrar todos (${S.scans.length})`},3000); return } await clearScans(false); return }
   if(S.view==='ml'){ const it=e.target.closest('.item.click'); if(it&&it.dataset.k){ FICHA_CH='ml'; openStock(it.dataset.k); $('#kFicha').click(); return } }
   const um=e.target.closest('[data-undo-mov]'); if(um){ const m=S.mov.find(x=>x.id===um.dataset.undoMov); if(!m) return;
     if(undoMove(m.id)) toast('Movimiento deshecho: '+m.n); renderList(); renderHome(); return }
