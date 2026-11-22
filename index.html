@@ -305,7 +305,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
         <div><h3 class="h">Ficha del producto</h3><p class="sub">Revisa y corrige antes de guardar.</p></div>
         <div class="seg" id="chTab" style="grid-template-columns:1fr 1fr"><button data-ch="web" class="on" type="button">Tu tienda</button><button data-ch="ml" type="button">Mercado Libre</button></div>
         <div id="fBanners" style="display:flex;flex-direction:column;gap:8px"></div>
-        <div class="price" aria-live="polite">
+        <div id="chWebPrice" class="price" aria-live="polite">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
             <div><div class="lbl">Precio final</div><div class="final mono" id="pFinal">—</div></div>
             <span class="pill" id="pRule">—</span>
@@ -325,7 +325,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
           <div style="font-size:12px;opacity:.75" id="pNote"></div>
         </div>
 
-        <div class="field"><label for="fTit">Título <span class="tag auto" id="tgTit">auto</span></label><input id="fTit"></div>
+        <div id="fEditFields" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="fTit">Título <span class="tag auto" id="tgTit">auto</span></label><input id="fTit"></div>
         <div class="two">
           <div class="field"><label for="fIsbn">ISBN</label><input id="fIsbn" class="mono" inputmode="numeric"></div>
           <div class="field"><label for="fStock">Stock en tu inventario</label><input id="fStock" class="mono" type="number" min="0"></div>
@@ -358,15 +358,27 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
           <p class="sub">Al exportar: el título del producto va como H2, el título de la sinopsis como H3 y luego la sinopsis.</p>
           <label for="fSubt" style="font-size:12px;color:var(--muted);font-weight:700">Título de la sinopsis (opcional)</label><input id="fSubt" placeholder="Frase o título que trae la contratapa">
           <textarea id="fDesc" placeholder="Aquí queda la sinopsis. Revísala y corrige lo que haga falta."></textarea></div>
-        <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div>
+        <div class="field"><label for="fImg">URL de la imagen (opcional)</label><input id="fImg" placeholder="https://porcinomangas.cl/wp-content/uploads/…"></div></div>
 
         <div id="chML" hidden style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px">
+            <div class="lbl">Resumen Mercado Libre</div>
+            <div class="mono" id="mlNombre" style="font-size:15px;font-weight:700;margin-top:4px"></div>
+            <div class="sub" style="margin-top:2px">Costo <span class="mono" id="mlCostoLbl"></span> · Embalaje <span class="mono" id="mlEmbLbl"></span></div>
+          </div>
           <div class="price">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
               <div><div class="lbl">Precio sugerido (gana <span id="mlGanLbl">30</span>% del costo en el peor caso)</div><div class="final mono" id="mlSug">—</div></div>
               <button class="btn primary sm" id="mlUsar" type="button">Usar</button>
             </div>
             <div style="font-size:12px;opacity:.85" id="mlNota"></div>
+          </div>
+          <div class="boxed" style="padding:12px;border-color:var(--warn);background:var(--warn-soft)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+              <div><div class="lbl" style="color:var(--warn)">Precio mínimo (ganancia 0, no pierdes)</div><div class="mono" id="mlMin" style="font-size:22px;font-weight:700;color:var(--warn)">—</div></div>
+              <button class="btn ghost sm" id="mlUsarMin" type="button">Usar</button>
+            </div>
+            <div class="sub" style="margin-top:4px">Bajo este precio pierdes dinero, incluso si vendes por Flex (peor caso).</div>
           </div>
           <div class="two">
             <div class="field"><label for="mlPrecio">Precio publicado en ML</label><input id="mlPrecio" class="mono" type="number" inputmode="numeric" placeholder="—"></div>
@@ -381,6 +393,26 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
               <span class="sub">IVA</span><span class="mono" style="text-align:right" id="mlIVAF"></span><span class="mono" style="text-align:right" id="mlIVAC"></span>
               <span style="font-weight:700;border-top:1px dashed var(--line);padding-top:6px">Ganancia real</span><span class="mono" style="text-align:right;border-top:1px dashed var(--line);padding-top:6px;font-weight:700" id="mlGanF"></span><span class="mono" style="text-align:right;border-top:1px dashed var(--line);padding-top:6px;font-weight:700" id="mlGanC"></span>
               <span class="sub">Margen sobre costo</span><span class="mono" style="text-align:right" id="mlMgF"></span><span class="mono" style="text-align:right" id="mlMgC"></span>
+            </div>
+          </div>
+          <div class="boxed" style="padding:12px;display:flex;flex-direction:column;gap:10px">
+            <div class="lbl">Simular descuento</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn ghost sm" data-dto="5" type="button">−5%</button>
+              <button class="btn ghost sm" data-dto="10" type="button">−10%</button>
+              <button class="btn ghost sm" data-dto="15" type="button">−15%</button>
+              <button class="btn ghost sm" data-dto="20" type="button">−20%</button>
+              <button class="btn ghost sm" data-dto="0" type="button" id="mlQuitarDto">Quitar</button>
+            </div>
+            <div class="two">
+              <div class="field"><label for="mlDtoPct">Descuento %</label><input id="mlDtoPct" class="mono" type="number" inputmode="numeric" placeholder="0" step="0.5" min="0" max="90"></div>
+              <div class="field"><label for="mlDtoClp">o descuento $</label><input id="mlDtoClp" class="mono" type="number" inputmode="numeric" placeholder="0" min="0"></div>
+            </div>
+            <div id="mlDtoBox" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 10px;font-size:13px">
+              <span></span><span style="text-align:right;font-weight:700" class="mid">FLEX</span><span style="text-align:right;font-weight:700" class="ok">CORREO</span>
+              <span class="sub">Precio con descuento</span><span class="mono" style="text-align:right;font-weight:700" id="mlDtoP"></span><span class="mono" style="text-align:right;font-weight:700" id="mlDtoP2"></span>
+              <span class="sub">Recibes (ya restado ML)</span><span class="mono" style="text-align:right" id="mlDtoRxF"></span><span class="mono" style="text-align:right" id="mlDtoRxC"></span>
+              <span class="sub">Ganancia real</span><span class="mono" style="text-align:right;font-weight:700" id="mlDtoGF"></span><span class="mono" style="text-align:right;font-weight:700" id="mlDtoGC"></span>
             </div>
           </div>
           <p class="sub">Tu tienda y Mercado Libre son canales independientes. Este precio no afecta al de tu tienda ni al stock. En Ajustes → Mercado Libre cambias comisión, cargo Flex, umbral envío gratis, recargo y ganancia deseada.</p>
@@ -540,8 +572,8 @@ function calcML(cost,precio,emb){
   return{comML,cargoFlex,recE,llegaFlex,llegaCorreo,ivaFlex,ivaCorreo,ganFlex,ganCorreo,mgFlex,mgCorreo};
 }
 // Precio sugerido para ganar X% del costo en el peor caso (Flex)
-function sugerirML(cost,emb){
-  const c=S.cfg, iva=c.iva/100, com=c.mlCom/100, umbral=+c.mlUmbral, recargo=+c.mlRecargo, fijoFlex=+c.mlFijoFlex, meta=c.mlGan/100;
+function sugerirML(cost,emb,metaOverride){
+  const c=S.cfg, iva=c.iva/100, com=c.mlCom/100, umbral=+c.mlUmbral, recargo=+c.mlRecargo, fijoFlex=+c.mlFijoFlex, meta=metaOverride!=null?metaOverride:c.mlGan/100;
   // Caso A: precio < umbral → Flex paga $fijoFlex, sin recargo
   //  precio = ((cost+emb)*(1+meta))*(1+iva)/(1-com) + fijoFlex*(1+iva)/(1-com)
   // Quiero ganFlex = meta*cost. Despejando el precio:
@@ -846,10 +878,15 @@ const FMAP={fTit:'tit',fIsbn:'isbn',fStock:'stock',fSerie:'serie',fTomo:'tomo',f
 const OMAP={oArs:'ars',oClp:'clp',oDto:'dto',oEnv:'env',oMan:'man'};
 function fillEdSelect(){$('#fEd').innerHTML=S.cfg.eds.map(e=>`<option>${esc(e.n)}</option>`).join('')}
 let CH='web';
-$('#chTab').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;CH=b.dataset.ch;$$('#chTab button').forEach(x=>x.classList.toggle('on',x===b));$('#chWeb').hidden=CH!=='web';$('#chML').hidden=CH!=='ml';renderFicha()});
+$('#chTab').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;CH=b.dataset.ch;$$('#chTab button').forEach(x=>x.classList.toggle('on',x===b));$('#chWeb').hidden=CH!=='web';$('#chWebPrice').hidden=CH!=='web';$('#fEditFields').hidden=CH!=='web';$('#chML').hidden=CH!=='ml';renderFicha()});
 $('#mlPrecio').addEventListener('input',e=>{if(!S.cur)return;S.cur.mlP=+e.target.value||0;renderFicha()});
 $('#mlEmb').addEventListener('input',e=>{if(!S.cur)return;S.cur.mlE=e.target.value===''?null:+e.target.value;renderFicha()});
 $('#mlUsar').addEventListener('click',()=>{if(!S.cur)return;const r=calc(S.cur.provArs,S.cur.ed,S.cur.ov);const emb=S.cur.mlE??+S.cfg.mlEmbalaje;S.cur.mlP=sugerirML(r.cost,emb);renderFicha()});
+$('#mlUsarMin').addEventListener('click',()=>{if(!S.cur)return;const r=calc(S.cur.provArs,S.cur.ed,S.cur.ov);const emb=S.cur.mlE??+S.cfg.mlEmbalaje;S.cur.mlP=sugerirML(r.cost,emb,0);renderFicha()});
+function setDto(pct,clp){ if(!S.cur) return; S.cur.mlDPct=pct; S.cur.mlDClp=clp; renderFicha() }
+$('#chML').addEventListener('click',e=>{const b=e.target.closest('[data-dto]');if(!b||!S.cur)return;setDto(+b.dataset.dto,0)});
+$('#mlDtoPct').addEventListener('input',e=>setDto(+e.target.value||0,0));
+$('#mlDtoClp').addEventListener('input',e=>setDto(0,+e.target.value||0));
 function renderFicha(){
   if(S.cur) $('#fDel').textContent=S.scans.some(x=>x.id===S.cur.id)?'Borrar':'Descartar';
   const s=S.cur; $('#fEmpty').hidden=!!s; $('#fBody').hidden=!s; if(!s) return;
@@ -878,12 +915,17 @@ function renderFicha(){
   f.style.background=r.mg>=c.mg/100-0.005?'var(--good)':r.mg>=0.15?'var(--warn)':'var(--bad)';
   $('#mGoal').style.left=Math.min(100,c.mg/0.5*100)+'%';
   // Mercado Libre
+  $('#chWebPrice').hidden=CH!=='web'; $('#fEditFields').hidden=CH!=='web'; $('#chWeb').hidden=CH!=='web'; $('#chML').hidden=CH!=='ml';
   const embML=s.mlE??+S.cfg.mlEmbalaje;
   if(document.activeElement!==$('#mlPrecio')) $('#mlPrecio').value=s.mlP||'';
   if(document.activeElement!==$('#mlEmb')) $('#mlEmb').value=s.mlE??'';
   $('#mlGanLbl').textContent=Math.round(S.cfg.mlGan);
-  const sug=sugerirML(r.cost,embML);
-  $('#mlSug').textContent=fmt(sug);
+  const sug=sugerirML(r.cost,embML), min=sugerirML(r.cost,embML,0);
+  $('#mlNombre').textContent=s.tit||'(sin título)';
+  $('#mlCostoLbl').textContent=isFinite(r.cost)?fmt(r.cost):'sin lista';
+  $('#mlEmbLbl').textContent=fmt(embML);
+  $('#mlSug').textContent=isFinite(sug)?fmt(sug):'—';
+  $('#mlMin').textContent=isFinite(min)?fmt(min):'—';
   const precio=s.mlP||sug, m=calcML(r.cost,precio,embML);
   const neg=n=>'−'+num(n);
   $('#mlComF').textContent=neg(m.comML); $('#mlComC').textContent=neg(m.comML);
@@ -894,6 +936,17 @@ function renderFicha(){
   $('#mlGanF').className='mono '+(m.ganFlex>=0?'ok':'low'); $('#mlGanC').className='mono '+(m.ganCorreo>=0?'ok':'low');
   $('#mlMgF').textContent=pct(m.mgFlex); $('#mlMgC').textContent=pct(m.mgCorreo);
   $('#mlNota').textContent=precio>=S.cfg.mlUmbral?'Este precio pasa el umbral: envío gratis obligatorio, se descuenta el recargo.':'Este precio es bajo el umbral: si vendes por Flex, pagas el cargo fijo.';
+  // Simulación de descuento
+  const dPct=+s.mlDPct||0, dClp=+s.mlDClp||0;
+  if(document.activeElement!==$('#mlDtoPct')) $('#mlDtoPct').value=dPct||'';
+  if(document.activeElement!==$('#mlDtoClp')) $('#mlDtoClp').value=dClp||'';
+  let dto=0; if(dPct) dto=precio*dPct/100; else if(dClp) dto=dClp;
+  const pDto=Math.max(0,Math.round(precio-dto));
+  const mD=calcML(r.cost,pDto,embML);
+  $('#mlDtoP').textContent=fmt(pDto); $('#mlDtoP2').textContent=fmt(pDto);
+  $('#mlDtoRxF').textContent=num(mD.llegaFlex); $('#mlDtoRxC').textContent=num(mD.llegaCorreo);
+  $('#mlDtoGF').textContent=num(mD.ganFlex); $('#mlDtoGC').textContent=num(mD.ganCorreo);
+  $('#mlDtoGF').className='mono '+(mD.ganFlex>=0?'ok':'low'); $('#mlDtoGC').className='mono '+(mD.ganCorreo>=0?'ok':'low');
   $('#pNote').textContent=!isFinite(r.cost)?'Falta el precio de compra.':r.manual?'Precio puesto a mano.':r.rule==='Tope proveedor'?`Para el ${c.mg}% tendría que venderse a ${fmt(r.p30)}. Queda en el tope del proveedor.`:r.conTope?`Precio para tu margen objetivo, bajo el tope (${fmt(r.tope)}).`:`Sin tope: siempre al ${c.mg}%.`;
 }
 Object.entries(FMAP).forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{ const s=S.cur; if(!s) return;
