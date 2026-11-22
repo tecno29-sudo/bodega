@@ -447,7 +447,7 @@ details.adv .inner{display:flex;flex-direction:column;gap:10px;margin-top:12px}
     <!-- PRODUCTOS -->
     <section class="screen" id="s-productos" aria-label="Productos">
       <div><h3 class="h">Productos</h3><p class="sub" id="lSub"></p></div>
-      <div class="seg" id="seg" style="grid-template-columns:repeat(5,1fr)"><button data-v="inv" class="on">Inventario</button><button data-v="esc">Escaneados</button><button data-v="hist">Historial</button><button data-v="precios">Precios</button><button data-v="ml">Mercado Libre</button></div>
+      <div class="seg" id="seg" style="display:flex;overflow-x:auto;scroll-snap-type:x proximity;grid-template-columns:none"><button data-v="inv" class="on" style="scroll-snap-align:start;white-space:nowrap">Inventario</button><button data-v="esc" style="scroll-snap-align:start;white-space:nowrap">Escaneados</button><button data-v="hist" style="scroll-snap-align:start;white-space:nowrap">Historial</button><button data-v="precios" style="scroll-snap-align:start;white-space:nowrap">Precios</button><button data-v="ml" style="scroll-snap-align:start;white-space:nowrap">Mercado Libre</button><button data-v="prov" style="scroll-snap-align:start;white-space:nowrap">Proveedor</button></div>
       <div class="expcard" id="exp"></div>
       <div class="search"><label for="q" hidden>Buscar</label><input id="q" placeholder="Buscar título o ISBN"></div>
       <div class="filters" id="filters"></div>
@@ -974,7 +974,9 @@ const FILTERS={inv:[['stock','Con stock'],['agot','Agotados'],['mov','Con movimi
   esc:[['todos','Todos'],['pend','Sin exportar'],['nuevo','Nuevos'],['existe','Ya en WooCommerce']],
   hist:[['todos','Todos'],['vend','Ventas'],['lleg','Llegadas'],['pend','Pendientes']],
   precios:[['cambio','Por actualizar'],['isbn','ISBN con error'],['bajo','Margen bajo'],['sinlista','Sin lista']],
-  ml:[['todos','Todos'],['sinprecio','Sin precio ML'],['bajo','Ganancia Flex baja'],['alto','Sobre umbral']]};
+  ml:[['todos','Todos'],['sinprecio','Sin precio ML'],['bajo','Ganancia Flex baja'],['alto','Sobre umbral']],
+  prov:[['nov','Novedades (no tengo)'],['tengo','Ya tengo'],['todos','Todos']]};
+function provEditoriales(){ const set=new Set(S.D.prov.map(p=>p[2])); return [...set].sort(); }
 S.view='inv'; S.filter='stock';
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; S.view=b.dataset.v; S.filter=FILTERS[S.view][0][0]; renderList()});
 $('#filters').addEventListener('click',e=>{const b=e.target.closest('.f'); if(b){S.filter=b.dataset.f; renderList()}});
@@ -987,7 +989,7 @@ function invItems(){
   return out.sort((a,b)=>collator.compare(a.n,b.n));
 }
 function renderList(){
-  if(!FILTERS[S.view].some(f=>f[0]===S.filter)) S.filter=FILTERS[S.view][0][0];
+  if(!FILTERS[S.view].some(f=>f[0]===S.filter)&&!(S.view==='prov'&&String(S.filter).startsWith('ed:'))) S.filter=FILTERS[S.view][0][0];
   $$('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
   $('#filters').innerHTML=FILTERS[S.view].map(([k,t])=>`<button class="f${k===S.filter?' on':''}" data-f="${k}">${t}</button>`).join('');
   const q=norm($('#q').value), g=S.cfg.mg/100, f=S.filter; let rows=[], html='', LIM=400;
@@ -1016,6 +1018,35 @@ function renderList(){
       <div style="text-align:right">${canUndo?`<button class="btn ghost sm" data-undo-mov="${m.id}">Deshacer</button>`:''}</div></div>` }).join('');
     const today=new Date().toDateString(), td=S.mov.filter(m=>new Date(m.t).toDateString()===today);
     $('#lSub').textContent=`Hoy: ${td.filter(m=>m.d<0).reduce((a,m)=>a-m.d,0)} vendidos · ${td.filter(m=>m.d>0).reduce((a,m)=>a+m.d,0)} llegados`;
+  } else if(S.view==='prov'){
+    const ownIsbn=new Set(S.D.cat.map(c=>c.i).filter(Boolean));
+    const scanIsbn=new Set(S.scans.map(s=>s.isbn).filter(Boolean));
+    let base=S.D.prov.filter(p=>p[0]); // ISBN válido
+    // filtro por editorial (con prefijo "ed:")
+    if(f.startsWith('ed:')){ const ed=f.slice(3); base=base.filter(p=>p[2]===ed); }
+    rows=base.filter(p=>{
+      const tengo=ownIsbn.has(p[0])||scanIsbn.has(p[0]);
+      if(f==='nov') return !tengo;
+      if(f==='tengo') return tengo;
+      return true; // todos o por editorial
+    }).filter(p=>hit(p[1],p[0]));
+    html=rows.slice(0,LIM).map(p=>{
+      const cat=S.D.cat.find(c=>c.i===p[0]);
+      const sc=S.scans.find(s=>s.isbn===p[0]);
+      let estado='',btn='';
+      if(cat){ estado=`<span class="ok">✓ ya en tu tienda · ID ${cat.id}</span>`; btn=`<button class="btn ghost sm" data-prov-abrir="${p[0]}" type="button">Abrir ficha</button>`; }
+      else if(sc){ estado='<span class="mid">ya está en Escaneados</span>'; btn=`<button class="btn ghost sm" data-prov-abrir="${p[0]}" type="button">Abrir ficha</button>`; }
+      else { estado='<span class="sub">no lo tienes aún</span>'; btn=`<button class="btn primary sm" data-prov-add="${p[0]}" type="button">+ Agregar</button>`; }
+      return `<div class="item"><div class="t">${esc(p[1])}</div><div class="p mono">${num(p[3])} ARS</div>
+      <div class="m">${esc(p[0])} · ${esc(p[2])}</div><div></div>
+      <div class="m">${estado}</div><div style="text-align:right">${btn}</div></div>`;
+    }).join('');
+    const eds=provEditoriales();
+    // Añadir filtros de editorial al final de los existentes
+    const extraFilters=eds.map(e=>`<button class="f${f==='ed:'+e?' on':''}" data-f="ed:${esc(e)}">${esc(e)}</button>`).join('');
+    $('#filters').insertAdjacentHTML('beforeend',extraFilters);
+    const nov=S.D.prov.filter(p=>p[0]&&!ownIsbn.has(p[0])&&!scanIsbn.has(p[0])).length;
+    $('#lSub').textContent=`${S.D.prov.length} productos en la lista · ${nov} novedades (no las tienes) · mostrando ${Math.min(rows.length,LIM)}`;
   } else if(S.view==='ml'){
     const all=invItems(); const g=S.cfg.mlGan/100;
     rows=all.filter(x=>{
@@ -1056,11 +1087,18 @@ function renderList(){
       <div class="m">${r?(r.final!==c.p?`${fmt(c.p)} → ${fmt(r.final)} · `:'')+esc(r.rule):'Sin precio de proveedor'}</div><div class="mg ok">${r?'+'+num(r.gan):''}</div></div>`).join('');
     $('#lSub').textContent=`${rows.length} productos con este filtro`;
   }
-  $('#list').innerHTML=html||'<div class="empty">'+(S.view==='esc'&&!S.scans.length?'Aún no escaneas nada. Toca Escanear para cargar el primer tomo.':S.view==='inv'&&!S.D.cat.length?'Importa tu catálogo de WooCommerce en Inicio para ver tu inventario.':'Nada con este filtro.')+'</div>';
+  $('#list').innerHTML=html||'<div class="empty">'+(S.view==='esc'&&!S.scans.length?'Aún no escaneas nada. Toca Escanear para cargar el primer tomo.':S.view==='prov'&&!S.D.prov.length?'Importa la lista de Entelequia desde el botón Actualizar.':S.view==='inv'&&!S.D.cat.length?'Importa tu catálogo de WooCommerce en Inicio para ver tu inventario.':'Nada con este filtro.')+'</div>';
   $('#more').textContent=rows.length>LIM?`Mostrando ${LIM} de ${rows.length}. Usa la búsqueda para encontrar uno.`:'';
   renderExport();
 }
 let armDel={id:null,t:0}, armClear={k:null,t:0};
+function addFromProv(isbn){
+  const p=IDX.prov.get(isbn); if(!p){ toast('No encontré el producto en la lista.'); return }
+  const c=IDX.cat.get(isbn)||null;
+  const prev=S.scans.find(x=>x.isbn===isbn);
+  S.cur=prev?loadCur(prev):newScan({isbn,p,c,byTitle:false});
+  go('ficha');
+}
 let FICHA_CH='';
 async function clearScans(onlyExp){
   const antes=S.scans.length;
@@ -1071,6 +1109,8 @@ async function clearScans(onlyExp){
   renderList(); renderHome();
 }
 $('#list').addEventListener('click',async e=>{
+  const pa=e.target.closest('[data-prov-add]'); if(pa){ addFromProv(pa.dataset.provAdd); return }
+  const po=e.target.closest('[data-prov-abrir]'); if(po){ addFromProv(po.dataset.provAbrir); return }
   const le=e.target.closest('#limpiarExp'); if(le){ e.stopPropagation(); if(armClear.k!=='exp'||Date.now()-armClear.t>3000){ armClear={k:'exp',t:Date.now()}; le.textContent='Toca otra vez para confirmar'; setTimeout(()=>{if(le.isConnected)le.textContent=`Limpiar exportados (${S.scans.filter(s=>s.exp).length})`},3000); return } await clearScans(true); return }
   const lt=e.target.closest('#limpiarTodos'); if(lt){ e.stopPropagation(); if(armClear.k!=='todos'||Date.now()-armClear.t>3000){ armClear={k:'todos',t:Date.now()}; lt.textContent='¿Borrar TODOS? Toca otra vez'; setTimeout(()=>{if(lt.isConnected)lt.textContent=`Borrar todos (${S.scans.length})`},3000); return } await clearScans(false); return }
   if(S.view==='ml'){ const it=e.target.closest('.item.click'); if(it&&it.dataset.k){ FICHA_CH='ml'; openStock(it.dataset.k); $('#kFicha').click(); return } }
